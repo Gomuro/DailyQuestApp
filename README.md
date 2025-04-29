@@ -1,5 +1,7 @@
 # DailyQuestApp 🎯
 
+> ⚠️ **Development Status**: This app is currently in active development and not ready for public use. The repository is public for demonstration purposes only.
+
 A fun and engaging Android app that provides daily quests and rewards to keep users motivated and entertained. Complete daily challenges, maintain streaks, and earn points while enjoying beautiful animations and a modern user interface.
 
 ## ✨ Features
