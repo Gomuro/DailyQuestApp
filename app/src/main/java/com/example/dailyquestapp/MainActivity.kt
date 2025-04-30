@@ -66,22 +66,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.text.font.FontWeight
 import com.example.dailyquestapp.components.AppMenu
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.dailyquestapp.data.local.DataStoreManager
+import com.example.dailyquestapp.presentation.quest.QuestViewModel
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
     lateinit var rewardButton: Button
-    var quests: MutableList<String> = mutableListOf(
-        " to take a selfie with a fish",
-        " to draw a picture with crayons",
-        " to write a poem about a cat",
-        " to eat a slice of pizza",
-        " to play a tune on a harmonica",
-        " to dance with a broom",
-        " to play a game of chess",
-        " to cook a scrambled egg",
-        " to solve a Rubik's cube",
-        " to recite a Shakespearean sonnet"
-    )
     var rewards: MutableList<String> = mutableListOf(
         "100 points",
         "500 points",
@@ -95,20 +89,26 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DailyQuestAppTheme {
-                DailyQuestScreen()
+                val viewModel: QuestViewModel = viewModel(
+                    factory = ViewModelFactory(applicationContext)
+                )
+                
+                DailyQuestScreen(viewModel)
             }
         }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    fun DailyQuestScreen() {
+    fun DailyQuestScreen(viewModel: QuestViewModel) {
         val view = LocalView.current
-        var currentQuest by remember { mutableStateOf(getTodayQuest(System.currentTimeMillis())) }
+        val currentSeed by viewModel.currentSeed.collectAsState()
+        val currentQuest by remember(currentSeed) { derivedStateOf { viewModel.getCurrentQuest() } }
         var showReward by remember { mutableStateOf(false) }
         val timeToNextQuest = remember { derivedStateOf { calculateTimeToNextQuest() } }
-        var totalPoints by remember { mutableStateOf(0) }
-        var currentStreak by remember { mutableStateOf(0) }
+        val progressState by viewModel.progress.collectAsState()
+        var totalPoints by remember { mutableStateOf(progressState.points) }
+        var currentStreak by remember { mutableStateOf(progressState.streak) }
         var showStreakAnimation by remember { mutableStateOf(false) }
         val streakScale by animateFloatAsState(
             targetValue = if (showStreakAnimation) 1.5f else 1f,
@@ -117,9 +117,8 @@ class MainActivity : ComponentActivity() {
                 stiffness = Spring.StiffnessLow
             )
         )
-        var lastClaimedDay by remember { mutableStateOf(-1) }
+        var lastClaimedDay by remember { mutableStateOf(progressState.lastDay) }
         var isQuestCompleted by remember { mutableStateOf(false) }
-        var currentSeed by remember { mutableStateOf(0L) }
         var rewardedQuest by remember { mutableStateOf<Pair<String, Int>?>(null) }
         val animatedProgress = remember { Animatable(0f) }
 
@@ -137,7 +136,7 @@ class MainActivity : ComponentActivity() {
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -253,7 +252,10 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.height(40.dp))
 
                 // Reward Section
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     AnimatedVisibility(visible = showReward) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -288,6 +290,7 @@ class MainActivity : ComponentActivity() {
                                 totalPoints += rewards[rewardedQuest!!.second % rewards.size]
                                     .removeSuffix(" points").toInt()
                                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                viewModel.saveProgress(totalPoints, currentStreak, lastClaimedDay)
                             }
                         },
                         modifier = Modifier
@@ -330,8 +333,7 @@ class MainActivity : ComponentActivity() {
             if (showReward) {
                 delay(2000)
                 showReward = false
-                currentSeed = System.currentTimeMillis()
-                currentQuest = getTodayQuest(currentSeed)
+                viewModel.loadSeed(System.currentTimeMillis())
             }
         }
 
@@ -424,10 +426,7 @@ class MainActivity : ComponentActivity() {
                 
                 delay(delayTime)
                 isQuestCompleted = false
-                currentSeed = Calendar.getInstance().run {
-                    get(Calendar.YEAR) * 1000L + get(Calendar.DAY_OF_YEAR)
-                }
-                currentQuest = getTodayQuest(currentSeed)
+                viewModel.loadSeed(System.currentTimeMillis())
             }
         }
 
@@ -438,12 +437,13 @@ class MainActivity : ComponentActivity() {
                 showStreakAnimation = false
             }
         }
-    }
 
-    fun getTodayQuest(seed: Long): Pair<String, Int> {
-        val random = Random(seed)
-        val index = random.nextInt(quests.size)
-        return Pair(quests[index], index)
+        // Update local states when ViewModel state changes
+        LaunchedEffect(progressState) {
+            totalPoints = progressState.points
+            currentStreak = progressState.streak
+            lastClaimedDay = progressState.lastDay
+        }
     }
 
     fun getReward(index: Int): String {
@@ -471,6 +471,16 @@ class MainActivity : ComponentActivity() {
     }
 
     data class QuestTimer(val formattedTime: String, val progress: Float)
+
+    // Create a proper factory class
+    class ViewModelFactory(private val context: android.content.Context) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(QuestViewModel::class.java)) {
+                return QuestViewModel(DataStoreManager(context)) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
+    }
 }
 
 @Composable

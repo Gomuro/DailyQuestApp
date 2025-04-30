@@ -1,0 +1,78 @@
+package com.example.dailyquestapp.presentation.quest
+
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.dailyquestapp.data.local.DataStoreManager
+import com.example.dailyquestapp.data.local.ProgressData
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.util.*
+import kotlin.random.Random
+import androidx.compose.runtime.mutableStateOf
+
+class QuestViewModel(
+    private val dataStoreManager: DataStoreManager
+) : ViewModel() {
+
+    private val _progress = MutableStateFlow(ProgressData())
+    val progress: StateFlow<ProgressData> = _progress.asStateFlow()
+
+    private val _currentSeed = MutableStateFlow(0L)
+    val currentSeed: StateFlow<Long> = _currentSeed.asStateFlow()
+
+    private val quests = listOf(
+        " to take a selfie with a fish",
+        " to draw a picture with crayons",
+        " to write a poem about a cat",
+        " to eat a slice of pizza",
+        " to play a tune on a harmonica",
+        " to dance with a broom",
+        " to play a game of chess",
+        " to cook a scrambled egg",
+        " to solve a Rubik's cube",
+        " to recite a Shakespearean sonnet"
+    )
+
+    init {
+        viewModelScope.launch {
+            dataStoreManager.progressFlow.collect { progressData ->
+                _progress.value = progressData
+            }
+        }
+
+        viewModelScope.launch {
+            dataStoreManager.seedFlow.collect { (seed, day) ->
+                val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
+                _currentSeed.value = if (day == today) seed else {
+                    val newSeed = System.currentTimeMillis()
+                    dataStoreManager.saveSeed(newSeed, today)
+                    newSeed
+                }
+            }
+        }
+    }
+
+    fun saveProgress(points: Int, streak: Int, lastDay: Int) {
+        viewModelScope.launch {
+            dataStoreManager.saveProgress(points, streak, lastDay)
+        }
+    }
+
+    fun getCurrentQuest() = getTodayQuest(_currentSeed.value)
+
+    private fun getTodayQuest(seed: Long): Pair<String, Int> {
+        val random = Random(seed)
+        val index = random.nextInt(quests.size)
+        return Pair(quests[index], index)
+    }
+
+    fun loadSeed(newSeed: Long) {
+        viewModelScope.launch {
+            val calendar = Calendar.getInstance()
+            val today = calendar.get(Calendar.DAY_OF_YEAR)
+            dataStoreManager.saveSeed(newSeed, today)
+            _currentSeed.value = newSeed
+        }
+    }
+} 
