@@ -222,7 +222,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("🎯 Your Mission", style = MaterialTheme.typography.titleMedium)
+                            Text("🎯Your task is:", style = MaterialTheme.typography.titleMedium)
                             
                             Spacer(Modifier.height(24.dp))
                             
