@@ -72,6 +72,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.presentation.quest.QuestViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Close
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -101,6 +103,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun DailyQuestScreen(viewModel: QuestViewModel) {
+        val context = LocalContext.current
         val view = LocalView.current
         val currentSeed by viewModel.currentSeed.collectAsState()
         val currentQuest by remember(currentSeed) { derivedStateOf { viewModel.getCurrentQuest() } }
@@ -121,6 +124,9 @@ class MainActivity : ComponentActivity() {
         var isQuestCompleted by remember { mutableStateOf(false) }
         var rewardedQuest by remember { mutableStateOf<Pair<String, Int>?>(null) }
         val animatedProgress = remember { Animatable(0f) }
+        var rejectCount by remember { mutableStateOf(0) }
+        var lastRejectDay by remember { mutableStateOf(Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) }
+        var wasRejected by remember { mutableStateOf(false) }
 
         AppMenu(
             menuContent = {
@@ -259,58 +265,105 @@ class MainActivity : ComponentActivity() {
                     AnimatedVisibility(visible = showReward) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Completed",
-                                tint = MaterialTheme.colorScheme.primary,
+                                imageVector = if (wasRejected) 
+                                    Icons.Filled.Close 
+                                else 
+                                    Icons.Default.CheckCircle,
+                                contentDescription = if (wasRejected) "Rejected" else "Completed",
+                                tint = if (wasRejected) 
+                                    MaterialTheme.colorScheme.error 
+                                else 
+                                    MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(32.dp)
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "+${rewards[(rewardedQuest?.second ?: 0) % rewards.size]}",
+                                text = if (wasRejected) 
+                                    "Quest rejected" 
+                                else 
+                                    "+${rewards[(rewardedQuest?.second ?: 0) % rewards.size]}",
                                 style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = if (wasRejected) 
+                                    MaterialTheme.colorScheme.error 
+                                else 
+                                    MaterialTheme.colorScheme.primary
                             )
                         }
                     }
 
-                    Button(
-                        onClick = {
-                            if (!showReward) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        Button(
+                            onClick = {
                                 val calendar = Calendar.getInstance()
                                 val today = calendar.get(Calendar.DAY_OF_YEAR)
                                 
-                                if (lastClaimedDay != today) {
-                                    currentStreak = if (lastClaimedDay == today - 1) currentStreak + 1 else 1
-                                    lastClaimedDay = today
-                                    showStreakAnimation = true
+                                if (lastRejectDay != today) {
+                                    rejectCount = 0
+                                    lastRejectDay = today
                                 }
                                 
-                                rewardedQuest = currentQuest
-                                showReward = true
-                                totalPoints += rewards[rewardedQuest!!.second % rewards.size]
-                                    .removeSuffix(" points").toInt()
-                                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                                viewModel.saveProgress(totalPoints, currentStreak, lastClaimedDay)
-                            }
-                        },
-                        modifier = Modifier
-                            .widthIn(min = 200.dp)
-                            .scale(if (showReward) 0.9f else 1f),
-                        shape = MaterialTheme.shapes.large,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (showReward) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) 
-                                            else MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Claim Reward", style = MaterialTheme.typography.labelLarge)
-                            Spacer(Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Claim",
-                                modifier = Modifier.size(20.dp)
+                                if (rejectCount < 5) {
+                                    rejectCount++
+                                    wasRejected = true
+                                    showReward = true
+                                    Toast.makeText(
+                                        context,
+                                        "Rejects left: ${5 - rejectCount}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            enabled = rejectCount < 5 && !showReward,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
                             )
+                        ) {
+                            Text("Reject Quest (${5 - rejectCount})")
+                        }
+
+                        Button(
+                            onClick = {
+                                if (!showReward) {
+                                    val calendar = Calendar.getInstance()
+                                    val today = calendar.get(Calendar.DAY_OF_YEAR)
+                                    
+                                    if (lastClaimedDay != today) {
+                                        currentStreak = if (lastClaimedDay == today - 1) currentStreak + 1 else 1
+                                        lastClaimedDay = today
+                                        showStreakAnimation = true
+                                    }
+                                    
+                                    rewardedQuest = currentQuest
+                                    showReward = true
+                                    totalPoints += rewards[rewardedQuest!!.second % rewards.size]
+                                        .removeSuffix(" points").toInt()
+                                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                    viewModel.saveProgress(totalPoints, currentStreak, lastClaimedDay)
+                                }
+                            },
+                            modifier = Modifier
+                                .widthIn(min = 200.dp)
+                                .scale(if (showReward) 0.9f else 1f),
+                            shape = MaterialTheme.shapes.large,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (showReward) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) 
+                                                else MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Claim Reward", style = MaterialTheme.typography.labelLarge)
+                                Spacer(Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Claim",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
 
@@ -334,6 +387,7 @@ class MainActivity : ComponentActivity() {
                 delay(2000)
                 showReward = false
                 viewModel.loadSeed(System.currentTimeMillis())
+                wasRejected = false
             }
         }
 

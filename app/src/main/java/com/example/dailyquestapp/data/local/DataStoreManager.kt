@@ -18,6 +18,7 @@ class DataStoreManager(context: Context) {
         val LAST_CLAIMED_DAY = intPreferencesKey("last_claimed_day")
         val CURRENT_SEED = longPreferencesKey("current_seed")
         val SEED_DAY = intPreferencesKey("seed_day")
+        val TASK_HISTORY = stringPreferencesKey("task_history")
     }
 
     suspend fun saveProgress(
@@ -62,3 +63,13 @@ data class ProgressData(
     val streak: Int = 0,
     val lastDay: Int = -1
 )
+
+data class TaskProgress(
+    val quest: String,
+    val points: Int,
+    val status: TaskStatus,
+    val date: String,
+    val time: String
+)
+
+enum class TaskStatus { COMPLETED, REJECTED }
