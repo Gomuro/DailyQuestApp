@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.random.Random
 import androidx.compose.runtime.mutableStateOf
+import com.example.dailyquestapp.data.local.TaskStatus
 
 class QuestViewModel(
     private val dataStoreManager: DataStoreManager
@@ -20,6 +21,9 @@ class QuestViewModel(
 
     private val _currentSeed = MutableStateFlow(0L)
     val currentSeed: StateFlow<Long> = _currentSeed.asStateFlow()
+
+    private val _rejectInfo = MutableStateFlow(Pair(0, -1))
+    val rejectInfo: StateFlow<Pair<Int, Int>> = _rejectInfo.asStateFlow()
 
     private val quests = listOf(
         " to take a selfie with a fish",
@@ -51,11 +55,18 @@ class QuestViewModel(
                 }
             }
         }
+
+        viewModelScope.launch {
+            dataStoreManager.rejectInfoFlow.collect { info ->
+                _rejectInfo.value = info
+            }
+        }
     }
 
-    fun saveProgress(points: Int, streak: Int, lastDay: Int) {
+    fun saveProgress(points: Int, streak: Int, lastDay: Int, quest: String, questPoints: Int, status: TaskStatus) {
         viewModelScope.launch {
             dataStoreManager.saveProgress(points, streak, lastDay)
+            dataStoreManager.saveTaskHistory(quest, questPoints, status)
         }
     }
 
@@ -73,6 +84,13 @@ class QuestViewModel(
             val today = calendar.get(Calendar.DAY_OF_YEAR)
             dataStoreManager.saveSeed(newSeed, today)
             _currentSeed.value = newSeed
+        }
+    }
+
+    fun updateRejectInfo(count: Int, day: Int) {
+        viewModelScope.launch {
+            dataStoreManager.saveRejectInfo(count, day)
+            _rejectInfo.value = Pair(count, day)
         }
     }
 } 

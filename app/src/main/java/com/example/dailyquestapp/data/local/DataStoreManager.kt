@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.*
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_progress")
 
@@ -19,6 +20,8 @@ class DataStoreManager(context: Context) {
         val CURRENT_SEED = longPreferencesKey("current_seed")
         val SEED_DAY = intPreferencesKey("seed_day")
         val TASK_HISTORY = stringPreferencesKey("task_history")
+        val REJECT_COUNT = intPreferencesKey("reject_count")
+        val LAST_REJECT_DAY = intPreferencesKey("last_reject_day")
     }
 
     suspend fun saveProgress(
@@ -54,6 +57,42 @@ class DataStoreManager(context: Context) {
             Pair(
                 preferences[CURRENT_SEED] ?: 0L,
                 preferences[SEED_DAY] ?: -1
+            )
+        }
+
+    suspend fun saveTaskHistory(quest: String, points: Int, status: TaskStatus) {
+        val calendar = Calendar.getInstance()
+        val pointsPrefix = if (status == TaskStatus.COMPLETED) "+" else ""
+        val taskEntry = """
+            ${calendar.time} | 
+            ${quest.trim()} | 
+            ${pointsPrefix}${points}pts | 
+            ${status}
+        """.trimIndent()
+        
+        dataStore.edit { preferences ->
+            val currentHistory = preferences[TASK_HISTORY] ?: ""
+            val newHistory = if (currentHistory.isEmpty()) {
+                taskEntry
+            } else {
+                "$currentHistory\n$taskEntry"
+            }
+            preferences[TASK_HISTORY] = newHistory
+        }
+    }
+
+    suspend fun saveRejectInfo(count: Int, day: Int) {
+        dataStore.edit { preferences ->
+            preferences[REJECT_COUNT] = count
+            preferences[LAST_REJECT_DAY] = day
+        }
+    }
+
+    val rejectInfoFlow: Flow<Pair<Int, Int>> = dataStore.data
+        .map { preferences ->
+            Pair(
+                preferences[REJECT_COUNT] ?: 0,
+                preferences[LAST_REJECT_DAY] ?: -1
             )
         }
 }

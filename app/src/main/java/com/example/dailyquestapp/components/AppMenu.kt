@@ -40,7 +40,7 @@ fun AppMenu(
             // Menu button
             IconButton(
                 onClick = { isMenuVisible = !isMenuVisible },
-                modifier = Modifier.padding(top = 16.dp, start = 8.dp)
+                modifier = Modifier.padding(top = 40.dp, start = 8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Menu,

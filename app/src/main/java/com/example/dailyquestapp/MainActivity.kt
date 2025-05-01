@@ -74,6 +74,7 @@ import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.presentation.quest.QuestViewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.Close
+import com.example.dailyquestapp.data.local.TaskStatus
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -124,12 +125,19 @@ class MainActivity : ComponentActivity() {
         var isQuestCompleted by remember { mutableStateOf(false) }
         var rewardedQuest by remember { mutableStateOf<Pair<String, Int>?>(null) }
         val animatedProgress = remember { Animatable(0f) }
-        var rejectCount by remember { mutableStateOf(0) }
-        var lastRejectDay by remember { mutableStateOf(Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) }
+        val (rejectCount, lastRejectDay) = viewModel.rejectInfo.collectAsStateWithLifecycle().value
         var wasRejected by remember { mutableStateOf(false) }
 
         AppMenu(
             menuContent = {
+                Text(
+                    text = "History",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { /* Add history logic */ }
+                        .padding(12.dp),
+                    style = MaterialTheme.typography.bodyLarge
+                )
                 Text(
                     text = "Settings",
                     modifier = Modifier
@@ -301,17 +309,16 @@ class MainActivity : ComponentActivity() {
                                 val today = calendar.get(Calendar.DAY_OF_YEAR)
                                 
                                 if (lastRejectDay != today) {
-                                    rejectCount = 0
-                                    lastRejectDay = today
+                                    viewModel.updateRejectInfo(0, today)
                                 }
                                 
                                 if (rejectCount < 5) {
-                                    rejectCount++
+                                    viewModel.updateRejectInfo(rejectCount + 1, today)
                                     wasRejected = true
                                     showReward = true
                                     Toast.makeText(
                                         context,
-                                        "Rejects left: ${5 - rejectCount}",
+                                        "Rejects left: ${5 - (rejectCount + 1)}",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -339,10 +346,18 @@ class MainActivity : ComponentActivity() {
                                     
                                     rewardedQuest = currentQuest
                                     showReward = true
-                                    totalPoints += rewards[rewardedQuest!!.second % rewards.size]
+                                    val points = rewards[rewardedQuest!!.second % rewards.size]
                                         .removeSuffix(" points").toInt()
+                                    totalPoints += points
                                     view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                                    viewModel.saveProgress(totalPoints, currentStreak, lastClaimedDay)
+                                    viewModel.saveProgress(
+                                        points = totalPoints,
+                                        streak = currentStreak,
+                                        lastDay = lastClaimedDay,
+                                        quest = currentQuest.first,
+                                        questPoints = points,
+                                        status = TaskStatus.COMPLETED
+                                    )
                                 }
                             },
                             modifier = Modifier
@@ -528,6 +543,7 @@ class MainActivity : ComponentActivity() {
 
     // Create a proper factory class
     class ViewModelFactory(private val context: android.content.Context) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(QuestViewModel::class.java)) {
                 return QuestViewModel(DataStoreManager(context)) as T
