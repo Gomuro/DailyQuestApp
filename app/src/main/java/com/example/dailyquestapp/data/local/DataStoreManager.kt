@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.text.SimpleDateFormat
 import java.util.*
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_progress")
@@ -62,13 +63,13 @@ class DataStoreManager(context: Context) {
 
     suspend fun saveTaskHistory(quest: String, points: Int, status: TaskStatus) {
         val calendar = Calendar.getInstance()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val formattedDate = dateFormat.format(calendar.time)
+        val formattedTime = timeFormat.format(calendar.time)
+        
         val pointsPrefix = if (status == TaskStatus.COMPLETED) "+" else ""
-        val taskEntry = """
-            ${calendar.time} | 
-            ${quest.trim()} | 
-            ${pointsPrefix}${points}pts | 
-            ${status}
-        """.trimIndent()
+        val taskEntry = "$formattedDate|$formattedTime|${quest.trim()}|${pointsPrefix}${points}pts|$status"
         
         dataStore.edit { preferences ->
             val currentHistory = preferences[TASK_HISTORY] ?: ""
@@ -90,15 +91,17 @@ class DataStoreManager(context: Context) {
                 historyString.split("\n").mapNotNull { line ->
                     try {
                         val parts = line.split("|").map { it.trim() }
-                        if (parts.size >= 4) {
-                            val dateTime = parts[0].split(" ")
-                            val date = if (dateTime.size > 0) dateTime[0] else ""
-                            val time = if (dateTime.size > 1) dateTime[1] else ""
-                            val quest = parts[1]
-                            val pointsText = parts[2].replace("pts", "").replace("+", "").trim()
+                        if (parts.size == 5) {
+                            val date = parts[0]
+                            val time = parts[1]
+                            val quest = parts[2]
+                            val pointsText = parts[3].replace("pts", "").replace("+", "").trim()
                             val points = pointsText.toIntOrNull() ?: 0
-                            val status = if (parts[3].equals("COMPLETED", true)) 
-                                TaskStatus.COMPLETED else TaskStatus.REJECTED
+                            val status = try {
+                                TaskStatus.valueOf(parts[4].uppercase(Locale.ROOT))
+                            } catch (e: IllegalArgumentException) {
+                                TaskStatus.REJECTED
+                            }
                             
                             TaskProgress(
                                 quest = quest,

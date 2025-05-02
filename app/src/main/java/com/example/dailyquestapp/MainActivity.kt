@@ -79,6 +79,7 @@ import com.example.dailyquestapp.data.local.TaskStatus
 import androidx.compose.material.icons.filled.Settings
 import com.example.dailyquestapp.components.MenuItem
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.foundation.shape.CircleShape
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -305,7 +306,8 @@ class MainActivity : ComponentActivity() {
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(vertical = 8.dp)
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(
                             onClick = {
@@ -331,9 +333,15 @@ class MainActivity : ComponentActivity() {
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
+                            ),
+                            modifier = Modifier.size(64.dp),
+                            contentPadding = PaddingValues(0.dp)
                         ) {
-                            Text("Reject Quest (${5 - rejectCount})")
+                            Icon(
+                                imageVector = Icons.Default.Close, 
+                                contentDescription = "Reject Quest (${5 - rejectCount} left)",
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
 
                         Button(
@@ -365,24 +373,21 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             modifier = Modifier
-                                .widthIn(min = 200.dp)
+                                .size(64.dp)
                                 .scale(if (showReward) 0.9f else 1f),
-                            shape = MaterialTheme.shapes.large,
+                            shape = CircleShape,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (showReward) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) 
                                                 else MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
+                            ),
+                            contentPadding = PaddingValues(0.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Claim Reward", style = MaterialTheme.typography.labelLarge)
-                                Spacer(Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Claim",
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Claim Reward",
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                     }
 
