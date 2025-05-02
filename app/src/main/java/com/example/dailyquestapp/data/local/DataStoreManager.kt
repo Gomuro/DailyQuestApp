@@ -75,9 +75,46 @@ class DataStoreManager(context: Context) {
             val newHistory = if (currentHistory.isEmpty()) {
                 taskEntry
             } else {
-                "$currentHistory\n$taskEntry"
+                "$taskEntry\n$currentHistory"
             }
             preferences[TASK_HISTORY] = newHistory
+        }
+    }
+
+    fun getTaskHistory(): Flow<List<TaskProgress>> {
+        return dataStore.data.map { preferences ->
+            val historyString = preferences[TASK_HISTORY] ?: ""
+            if (historyString.isEmpty()) {
+                emptyList()
+            } else {
+                historyString.split("\n").mapNotNull { line ->
+                    try {
+                        val parts = line.split("|").map { it.trim() }
+                        if (parts.size >= 4) {
+                            val dateTime = parts[0].split(" ")
+                            val date = if (dateTime.size > 0) dateTime[0] else ""
+                            val time = if (dateTime.size > 1) dateTime[1] else ""
+                            val quest = parts[1]
+                            val pointsText = parts[2].replace("pts", "").replace("+", "").trim()
+                            val points = pointsText.toIntOrNull() ?: 0
+                            val status = if (parts[3].equals("COMPLETED", true)) 
+                                TaskStatus.COMPLETED else TaskStatus.REJECTED
+                            
+                            TaskProgress(
+                                quest = quest,
+                                points = points,
+                                status = status,
+                                date = date,
+                                time = time
+                            )
+                        } else {
+                            null
+                        }
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+            }
         }
     }
 

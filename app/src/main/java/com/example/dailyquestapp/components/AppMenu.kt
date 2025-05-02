@@ -16,6 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsPadding
 
 @Composable
 fun AppMenu(
@@ -28,11 +32,15 @@ fun AppMenu(
     
     Box(modifier = Modifier.fillMaxSize()) {
         // Main content
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
             // Menu button
             IconButton(
                 onClick = { isMenuVisible = !isMenuVisible },
-                modifier = Modifier.padding(top = 40.dp, start = 8.dp)
+                modifier = Modifier.padding(start = 8.dp, top = 8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Menu,
@@ -62,24 +70,39 @@ fun AppMenu(
             visible = isMenuVisible,
             enter = slideInHorizontally(animationSpec = tween(300)) { -it },
             exit = slideOutHorizontally(animationSpec = tween(300)) { -it },
-            modifier = Modifier.align(Alignment.TopStart)
+            modifier = Modifier
+                .fillMaxHeight()
+                .align(Alignment.TopStart)
         ) {
             Card(
                 modifier = Modifier
-                    .width(200.dp)
-                    .padding(top = 60.dp, start = 8.dp),
+                    .fillMaxHeight()
+                    .width(300.dp)
+                    ,
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .statusBarsPadding()
+                        .padding(vertical = 8.dp)
+                ) {
+                    // Header Row
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Menu", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = "Menu",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         IconButton(
                             onClick = closeMenu,
                             modifier = Modifier.size(24.dp)
@@ -91,9 +114,39 @@ fun AppMenu(
                             )
                         }
                     }
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
                     menuContent(closeMenu)
                 }
             }
         }
+    }
+}
+
+// New MenuItem Composable
+@Composable
+fun MenuItem(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

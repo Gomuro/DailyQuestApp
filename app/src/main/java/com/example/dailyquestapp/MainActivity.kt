@@ -76,6 +76,9 @@ import com.example.dailyquestapp.presentation.quest.QuestViewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.Close
 import com.example.dailyquestapp.data.local.TaskStatus
+import androidx.compose.material.icons.filled.Settings
+import com.example.dailyquestapp.components.MenuItem
+import androidx.compose.material.icons.outlined.History
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -131,25 +134,21 @@ class MainActivity : ComponentActivity() {
 
         AppMenu(
             menuContent = { closeMenu ->
-                Text(
+                MenuItem(
                     text = "History",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { 
-                            // Navigate to History Activity
-                            context.startActivity(Intent(context, HistoryActivity::class.java))
-                            closeMenu()
-                        }
-                        .padding(12.dp),
-                    style = MaterialTheme.typography.bodyLarge
+                    icon = Icons.Outlined.History,
+                    onClick = {
+                        context.startActivity(Intent(context, HistoryActivity::class.java))
+                        closeMenu()
+                    }
                 )
-                Text(
+                MenuItem(
                     text = "Settings",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { /* Add settings logic */ }
-                        .padding(12.dp),
-                    style = MaterialTheme.typography.bodyLarge
+                    icon = Icons.Default.Settings,
+                    onClick = { 
+                        Toast.makeText(context, "Settings clicked (TODO)", Toast.LENGTH_SHORT).show()
+                        closeMenu() 
+                    }
                 )
             }
         ) {
