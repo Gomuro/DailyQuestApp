@@ -1,5 +1,6 @@
 package com.example.dailyquestapp
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
@@ -129,12 +130,16 @@ class MainActivity : ComponentActivity() {
         var wasRejected by remember { mutableStateOf(false) }
 
         AppMenu(
-            menuContent = {
+            menuContent = { closeMenu ->
                 Text(
                     text = "History",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { /* Add history logic */ }
+                        .clickable { 
+                            // Navigate to History Activity
+                            context.startActivity(Intent(context, HistoryActivity::class.java))
+                            closeMenu()
+                        }
                         .padding(12.dp),
                     style = MaterialTheme.typography.bodyLarge
                 )

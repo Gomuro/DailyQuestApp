@@ -19,23 +19,15 @@ import androidx.compose.animation.core.tween
 
 @Composable
 fun AppMenu(
-    menuContent: @Composable ColumnScope.() -> Unit,
+    menuContent: @Composable ColumnScope.(closeMenu: () -> Unit) -> Unit,
     content: @Composable () -> Unit
 ) {
     var isMenuVisible by remember { mutableStateOf(false) }
     
+    val closeMenu = { isMenuVisible = false }
+    
     Box(modifier = Modifier.fillMaxSize()) {
-        // Clickable overlay
-        if (isMenuVisible) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { isMenuVisible = false }
-                    .background(Color.Black.copy(alpha = 0.2f))
-            )
-        }
-
-        // Menu system
+        // Main content
         Column(modifier = Modifier.fillMaxSize()) {
             // Menu button
             IconButton(
@@ -52,6 +44,17 @@ fun AppMenu(
 
             // Main content
             content()
+        }
+
+        // Clickable overlay - this is positioned after content but before menu drawer
+        // to ensure it blocks all content interaction when menu is open
+        if (isMenuVisible) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { isMenuVisible = false }
+                    .background(Color.Black.copy(alpha = 0.2f))
+            )
         }
 
         // Menu drawer
@@ -78,7 +81,7 @@ fun AppMenu(
                     ) {
                         Text("Menu", style = MaterialTheme.typography.titleMedium)
                         IconButton(
-                            onClick = { isMenuVisible = false },
+                            onClick = closeMenu,
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
@@ -88,7 +91,7 @@ fun AppMenu(
                             )
                         }
                     }
-                    menuContent()
+                    menuContent(closeMenu)
                 }
             }
         }
