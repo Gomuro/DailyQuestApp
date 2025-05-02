@@ -190,7 +190,7 @@ fun HistoryItemCard(taskProgress: TaskProgress) {
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "${taskProgress.date}",
+                    text = "${taskProgress.date} ${taskProgress.time}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

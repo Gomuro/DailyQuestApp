@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
                     text = "Settings",
                     icon = Icons.Default.Settings,
                     onClick = { 
-                        Toast.makeText(context, "Settings clicked (TODO)", Toast.LENGTH_SHORT).show()
+                        context.startActivity(Intent(context, SettingsActivity::class.java))
                         closeMenu() 
                     }
                 )
@@ -227,12 +227,14 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Spacer(Modifier.height(40.dp))
+                // Spacer before Quest Card
+                Spacer(Modifier.height(32.dp)) // Adjusted height
 
                 // Main Quest Card
                 AnimatedVisibility(visible = !showReward) {
                     Card(
                         modifier = Modifier.fillMaxWidth(0.9f),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp), // Added elevation
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
@@ -268,7 +270,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Spacer(Modifier.height(40.dp))
+                // Spacer after Quest Card
+                Spacer(Modifier.height(32.dp)) // Adjusted height
 
                 // Reward Section
                 Column(
@@ -391,7 +394,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    // Spacer below buttons
+                    Spacer(Modifier.height(24.dp)) // Adjusted height
 
                     Text(
                         text = when {

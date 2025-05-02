@@ -27,6 +27,11 @@
             android:name=".HistoryActivity"
             android:exported="false"
             android:theme="@style/Theme.DailyQuestApp" />
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="Settings"
+            android:theme="@style/Theme.DailyQuestApp" />
     </application>
 
 </manifest>
