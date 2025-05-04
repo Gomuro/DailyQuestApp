@@ -30,4 +30,11 @@ class HistoryViewModel(private val dataStoreManager: DataStoreManager) : ViewMod
             }
         }
     }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            dataStoreManager.clearTaskHistory()
+            // History will automatically update via the collect in loadHistory
+        }
+    }
 } 

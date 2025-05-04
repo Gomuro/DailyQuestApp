@@ -121,6 +121,12 @@ class DataStoreManager(context: Context) {
         }
     }
 
+    suspend fun clearTaskHistory() {
+        dataStore.edit { preferences ->
+            preferences.remove(TASK_HISTORY)
+        }
+    }
+
     suspend fun saveRejectInfo(count: Int, day: Int) {
         dataStore.edit { preferences ->
             preferences[REJECT_COUNT] = count

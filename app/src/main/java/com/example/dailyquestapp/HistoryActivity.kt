@@ -13,10 +13,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +39,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.runtime.setValue
 
 class HistoryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,6 +75,7 @@ fun HistoryScreen(
     viewModel: HistoryViewModel,
     onBackPressed: () -> Unit
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val historyItems by viewModel.historyItems.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val view = LocalView.current
@@ -91,6 +96,32 @@ fun HistoryScreen(
         }
     }
 
+    // Add confirmation dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete All History?") },
+            text = { Text("Are you sure you want to permanently delete all quest history?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearHistory()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Delete All", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -99,8 +130,24 @@ fun HistoryScreen(
                     IconButton(onClick = onBackPressed) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            modifier = Modifier.size(32.dp)
                         )
+                    }
+                },
+                actions = {
+                    // Only show delete button if there are history items
+                    if (historyItems.isNotEmpty()) {
+                        IconButton(
+                            onClick = { showDeleteDialog = true },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteForever,
+                                contentDescription = "Reset History",
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
                     }
                 }
             )

@@ -33,8 +33,8 @@ fun AppMenu(
     Box(modifier = Modifier.fillMaxSize()) {
         // Main content
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                 .statusBarsPadding()
         ) {
             // Menu button
