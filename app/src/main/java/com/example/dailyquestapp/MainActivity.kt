@@ -80,6 +80,7 @@ import androidx.compose.material.icons.filled.Settings
 import com.example.dailyquestapp.components.MenuItem
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.foundation.shape.CircleShape
+import com.example.dailyquestapp.ui.theme.LocalThemeMode
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -95,13 +96,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        val dataStoreManager = DataStoreManager(applicationContext)
+        
         setContent {
-            DailyQuestAppTheme {
-                val viewModel: QuestViewModel = viewModel(
-                    factory = ViewModelFactory(applicationContext)
-                )
-                
-                DailyQuestScreen(viewModel)
+            CompositionLocalProvider(
+                LocalThemeMode provides dataStoreManager.themePreferenceFlow
+            ) {
+                DailyQuestAppTheme {
+                    val viewModel: QuestViewModel = viewModel(
+                        factory = ViewModelFactory(applicationContext)
+                    )
+                    
+                    DailyQuestScreen(viewModel)
+                }
             }
         }
     }
@@ -156,6 +164,7 @@ class MainActivity : ComponentActivity() {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center

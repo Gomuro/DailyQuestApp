@@ -23,6 +23,7 @@ class DataStoreManager(context: Context) {
         val TASK_HISTORY = stringPreferencesKey("task_history")
         val REJECT_COUNT = intPreferencesKey("reject_count")
         val LAST_REJECT_DAY = intPreferencesKey("last_reject_day")
+        val THEME_PREFERENCE = intPreferencesKey("theme_preference")
     }
 
     suspend fun saveProgress(
@@ -141,6 +142,17 @@ class DataStoreManager(context: Context) {
                 preferences[LAST_REJECT_DAY] ?: -1
             )
         }
+
+    suspend fun saveThemePreference(themeMode: Int) {
+        dataStore.edit { preferences ->
+            preferences[THEME_PREFERENCE] = themeMode
+        }
+    }
+
+    val themePreferenceFlow: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[THEME_PREFERENCE] ?: ThemeMode.SYSTEM.value
+        }
 }
 
 data class ProgressData(
@@ -158,3 +170,9 @@ data class TaskProgress(
 )
 
 enum class TaskStatus { COMPLETED, REJECTED }
+
+enum class ThemeMode(val value: Int) {
+    LIGHT(0),
+    DARK(1),
+    SYSTEM(2)
+}

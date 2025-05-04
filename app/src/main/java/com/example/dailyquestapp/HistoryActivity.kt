@@ -40,20 +40,29 @@ import androidx.core.view.WindowCompat
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
+import com.example.dailyquestapp.ui.theme.LocalThemeMode
 
 class HistoryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        val dataStoreManager = DataStoreManager(applicationContext)
+        
         setContent {
-            DailyQuestAppTheme {
-                val viewModel: HistoryViewModel = viewModel(
-                    factory = HistoryViewModelFactory(applicationContext)
-                )
-                HistoryScreen(
-                    viewModel = viewModel,
-                    onBackPressed = { finish() }
-                )
+            CompositionLocalProvider(
+                LocalThemeMode provides dataStoreManager.themePreferenceFlow
+            ) {
+                DailyQuestAppTheme {
+                    val viewModel: HistoryViewModel = viewModel(
+                        factory = HistoryViewModelFactory(applicationContext)
+                    )
+                    HistoryScreen(
+                        viewModel = viewModel,
+                        onBackPressed = { finish() }
+                    )
+                }
             }
         }
     }
