@@ -9,8 +9,9 @@ import com.example.dailyquestapp.data.remote.mapper.toProgressData
 import com.example.dailyquestapp.data.remote.mapper.toTaskProgressList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import javax.inject.Inject
 
-class ProgressRepository constructor(
+class ProgressRepository @Inject constructor(
     private val apiService: ApiService
 ) {
     // Progress data
@@ -83,4 +84,4 @@ class ProgressRepository constructor(
         val response = apiService.getThemePreference()
         emit(response.themePreference)
     }
-}
+} 

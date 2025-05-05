@@ -3,6 +3,7 @@ package com.example.dailyquestapp.presentation.quest
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dailyquestapp.data.repository.ProgressRepository
 import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.data.local.ProgressData
 import kotlinx.coroutines.flow.*
@@ -11,10 +12,14 @@ import java.util.*
 import kotlin.random.Random
 import androidx.compose.runtime.mutableStateOf
 import com.example.dailyquestapp.data.local.TaskStatus
+import org.koin.core.component.KoinComponent
 
-class QuestViewModel(
-    private val dataStoreManager: DataStoreManager
-) : ViewModel() {
+// Remove @HiltViewModel annotation for now since we're not using Hilt DI
+// @HiltViewModel
+class QuestViewModel constructor(
+    private val dataStoreManager: DataStoreManager,
+    private val progressRepository: ProgressRepository
+) : ViewModel(), KoinComponent {
 
     private val _progress = MutableStateFlow(ProgressData())
     val progress: StateFlow<ProgressData> = _progress.asStateFlow()
@@ -40,7 +45,7 @@ class QuestViewModel(
 
     init {
         viewModelScope.launch {
-            dataStoreManager.progressFlow.collect { progressData ->
+            progressRepository.getProgressFlow().collect { progressData ->
                 _progress.value = progressData
             }
         }
@@ -93,4 +98,4 @@ class QuestViewModel(
             _rejectInfo.value = Pair(count, day)
         }
     }
-} 
+}

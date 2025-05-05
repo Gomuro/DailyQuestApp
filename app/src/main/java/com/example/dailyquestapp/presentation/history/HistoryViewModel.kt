@@ -2,14 +2,19 @@ package com.example.dailyquestapp.presentation.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dailyquestapp.data.local.DataStoreManager
+import com.example.dailyquestapp.data.repository.ProgressRepository
 import com.example.dailyquestapp.data.local.TaskProgress
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import kotlinx.coroutines.flow.flow
 
-class HistoryViewModel(private val dataStoreManager: DataStoreManager) : ViewModel() {
+// @HiltViewModel
+class HistoryViewModel constructor(
+    private val progressRepository: ProgressRepository
+) : ViewModel(), KoinComponent {
     
     private val _historyItems = MutableStateFlow<List<TaskProgress>>(emptyList())
     val historyItems: StateFlow<List<TaskProgress>> = _historyItems.asStateFlow()
@@ -24,17 +29,17 @@ class HistoryViewModel(private val dataStoreManager: DataStoreManager) : ViewMod
     private fun loadHistory() {
         viewModelScope.launch {
             _isLoading.value = true
-            dataStoreManager.getTaskHistory().collect { historyItems ->
-                _historyItems.value = historyItems
-                _isLoading.value = false
-            }
+            // Get history items directly since we don't have a flow version
+            val history = progressRepository.getTaskHistory()
+            _historyItems.value = history
+            _isLoading.value = false
         }
     }
 
     fun clearHistory() {
         viewModelScope.launch {
-            dataStoreManager.clearTaskHistory()
-            // History will automatically update via the collect in loadHistory
+            progressRepository.clearTaskHistory()
+            _historyItems.value = emptyList()
         }
     }
 } 

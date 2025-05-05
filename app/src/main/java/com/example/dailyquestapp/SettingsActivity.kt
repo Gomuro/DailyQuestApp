@@ -18,9 +18,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.data.local.ThemeMode
 import com.example.dailyquestapp.presentation.settings.SettingsViewModel
@@ -39,25 +38,13 @@ class SettingsActivity : ComponentActivity() {
                 LocalThemeMode provides dataStoreManager.themePreferenceFlow
             ) {
                 DailyQuestAppTheme {
-                    val viewModel: SettingsViewModel = viewModel(
-                        factory = SettingsViewModelFactory(applicationContext)
-                    )
+                    val viewModel: SettingsViewModel by viewModel<SettingsViewModel>()
                     SettingsScreen(
                         viewModel = viewModel,
                         onBackPressed = { finish() }
                     )
                 }
             }
-        }
-    }
-    
-    class SettingsViewModelFactory(private val context: android.content.Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                return SettingsViewModel(DataStoreManager(context)) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

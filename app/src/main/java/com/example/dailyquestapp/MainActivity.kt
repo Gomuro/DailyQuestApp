@@ -67,8 +67,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.text.font.FontWeight
 import com.example.dailyquestapp.components.AppMenu
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModel
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dailyquestapp.data.local.DataStoreManager
@@ -104,9 +104,7 @@ class MainActivity : ComponentActivity() {
                 LocalThemeMode provides dataStoreManager.themePreferenceFlow
             ) {
                 DailyQuestAppTheme {
-                    val viewModel: QuestViewModel = viewModel(
-                        factory = ViewModelFactory(applicationContext)
-                    )
+                    val viewModel: QuestViewModel by viewModel<QuestViewModel>()
                     
                     DailyQuestScreen(viewModel)
                 }
@@ -562,17 +560,6 @@ class MainActivity : ComponentActivity() {
     }
 
     data class QuestTimer(val formattedTime: String, val progress: Float)
-
-    // Create a proper factory class
-    class ViewModelFactory(private val context: android.content.Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(QuestViewModel::class.java)) {
-                return QuestViewModel(DataStoreManager(context)) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
 }
 
 @Composable

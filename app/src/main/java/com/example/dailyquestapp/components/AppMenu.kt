@@ -117,7 +117,7 @@ fun AppMenu(
                             )
                         }
                     }
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     menuContent(closeMenu)
                 }
             }

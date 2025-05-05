@@ -28,7 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.data.local.TaskProgress
 import com.example.dailyquestapp.data.local.TaskStatus
@@ -55,25 +55,13 @@ class HistoryActivity : ComponentActivity() {
                 LocalThemeMode provides dataStoreManager.themePreferenceFlow
             ) {
                 DailyQuestAppTheme {
-                    val viewModel: HistoryViewModel = viewModel(
-                        factory = HistoryViewModelFactory(applicationContext)
-                    )
+                    val viewModel: HistoryViewModel by viewModel<HistoryViewModel>()
                     HistoryScreen(
                         viewModel = viewModel,
                         onBackPressed = { finish() }
                     )
                 }
             }
-        }
-    }
-
-    class HistoryViewModelFactory(private val context: android.content.Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(HistoryViewModel::class.java)) {
-                return HistoryViewModel(DataStoreManager(context)) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }
