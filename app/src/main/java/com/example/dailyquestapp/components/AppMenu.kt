@@ -30,7 +30,10 @@ fun AppMenu(
     
     val closeMenu = { isMenuVisible = false }
     
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(MaterialTheme.colorScheme.background)
+    ) {
         // Main content
         Column(
                 modifier = Modifier
