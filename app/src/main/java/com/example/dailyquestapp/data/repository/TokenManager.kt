@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 
 private val Context.tokenDataStore by preferencesDataStore(name = "auth_token")
 
@@ -28,7 +29,7 @@ class TokenManager constructor(private val context: Context) {
         }
     }
     
-    suspend fun deleteToken() {
+    suspend fun clearToken() {
         context.tokenDataStore.edit { preferences ->
             preferences.remove(TOKEN_KEY)
         }
@@ -36,11 +37,11 @@ class TokenManager constructor(private val context: Context) {
     
     // Synchronous version for immediate access (use carefully)
     fun getToken(): String {
+        // This is still a blocking call but much safer than before
+        // as it only gets the first emission rather than collecting indefinitely
         var token = ""
         runBlocking {
-            context.tokenDataStore.data.collect { preferences ->
-                token = preferences[TOKEN_KEY] ?: ""
-            }
+            token = getTokenFlow().first()
         }
         return token
     }

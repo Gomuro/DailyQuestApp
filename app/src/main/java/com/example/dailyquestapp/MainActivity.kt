@@ -81,6 +81,9 @@ import com.example.dailyquestapp.components.MenuItem
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.foundation.shape.CircleShape
 import com.example.dailyquestapp.ui.theme.LocalThemeMode
+import androidx.compose.runtime.CompositionLocalProvider
+import com.example.dailyquestapp.navigation.MainNavigation
+import com.example.dailyquestapp.presentation.profile.UserViewModel
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -104,9 +107,21 @@ class MainActivity : ComponentActivity() {
                 LocalThemeMode provides dataStoreManager.themePreferenceFlow
             ) {
                 DailyQuestAppTheme {
-                    val viewModel: QuestViewModel by viewModel<QuestViewModel>()
+                    val questViewModel: QuestViewModel by viewModel<QuestViewModel>()
+                    val userViewModel: UserViewModel by viewModel<UserViewModel>()
                     
-                    DailyQuestScreen(viewModel)
+                    // Initialize user auth state
+                    LaunchedEffect(Unit) {
+                        userViewModel.initialize(applicationContext)
+                    }
+                    
+                    MainNavigation(
+                        questViewModel = questViewModel,
+                        userViewModel = userViewModel,
+                        onDailyQuestScreen = {
+                            DailyQuestScreen(questViewModel)
+                        }
+                    )
                 }
             }
         }

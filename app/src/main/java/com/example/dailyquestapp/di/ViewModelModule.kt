@@ -1,6 +1,7 @@
 package com.example.dailyquestapp.di
 
 import com.example.dailyquestapp.presentation.history.HistoryViewModel
+import com.example.dailyquestapp.presentation.profile.UserViewModel
 import com.example.dailyquestapp.presentation.quest.QuestViewModel
 import com.example.dailyquestapp.presentation.settings.SettingsViewModel
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -15,4 +16,7 @@ val viewModelModule = module {
     
     // Register SettingsViewModel
     viewModel { SettingsViewModel(get()) }
+    
+    // Register UserViewModel for authentication
+    viewModel { UserViewModel() }
 } 
