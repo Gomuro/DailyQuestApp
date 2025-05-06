@@ -153,6 +153,23 @@ class DataStoreManager(context: Context) {
         .map { preferences ->
             preferences[THEME_PREFERENCE] ?: ThemeMode.SYSTEM.value
         }
+
+    /**
+     * Update local task history with remote data
+     * This method will replace the existing task history with the provided list
+     */
+    suspend fun updateTaskHistoryCache(tasks: List<TaskProgress>) {
+        if (tasks.isEmpty()) return
+        
+        val historyEntries = tasks.joinToString("\n") { task ->
+            val pointsPrefix = if (task.status == TaskStatus.COMPLETED) "+" else ""
+            "${task.date}|${task.time}|${task.quest.trim()}|${pointsPrefix}${task.points}pts|${task.status}"
+        }
+        
+        dataStore.edit { preferences ->
+            preferences[TASK_HISTORY] = historyEntries
+        }
+    }
 }
 
 data class ProgressData(

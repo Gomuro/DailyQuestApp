@@ -1,0 +1,365 @@
+package com.example.dailyquestapp.data.repository
+
+import android.content.Context
+import android.util.Log
+import com.example.dailyquestapp.data.local.DataStoreManager
+import com.example.dailyquestapp.data.local.ProgressData
+import com.example.dailyquestapp.data.local.TaskProgress
+import com.example.dailyquestapp.data.local.TaskStatus
+import com.example.dailyquestapp.data.remote.ApiService
+import com.example.dailyquestapp.data.remote.dto.*
+import com.example.dailyquestapp.util.ConnectivityObserver
+import com.example.dailyquestapp.util.NetworkConnectivityObserver
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
+
+/**
+ * Implementation of ProgressRepository that follows an offline-first approach:
+ * 1. All data is saved locally first
+ * 2. Then attempts to sync with the server
+ * 3. Falls back to local data when server is unavailable
+ * 4. Queues changes for sync when connectivity is restored
+ */
+class OfflineFirstProgressRepository(
+    private val context: Context,
+    private val dataStoreManager: DataStoreManager,
+    private val apiService: ApiService,
+    private val externalScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+) : ProgressRepository {
+
+    private val TAG = "OfflineFirstProgressRepo"
+    
+    // Network connectivity observer
+    private val connectivityObserver = NetworkConnectivityObserver(context)
+    
+    // Tracks if we're online or not based on network state
+    private val _isOnline = MutableStateFlow(
+        connectivityObserver.getCurrentConnectivityStatus() == ConnectivityObserver.Status.Available
+    )
+    
+    private val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+    
+    // Queue of operations to sync when back online
+    private val pendingOperations = mutableListOf<suspend () -> Unit>()
+
+    init {
+        // Observe network connectivity changes
+        externalScope.launch {
+            connectivityObserver.observe().collect { status ->
+                val online = status == ConnectivityObserver.Status.Available
+                
+                if (online && !_isOnline.value) {
+                    // We just went back online
+                    Log.d(TAG, "Network connection restored. Processing pending operations.")
+                    _isOnline.value = true
+                    processPendingOperations()
+                } else if (!online && _isOnline.value) {
+                    // We just went offline
+                    Log.d(TAG, "Network connection lost.")
+                    _isOnline.value = false
+                }
+            }
+        }
+    }
+
+    // Progress data
+    override suspend fun saveProgress(points: Int, streak: Int, lastDay: Int): ProgressData {
+        // Always save locally first
+        dataStoreManager.saveProgress(points, streak, lastDay)
+        
+        // Try to sync with server
+        return try {
+            val response = apiService.saveProgress(ProgressRequest(points, streak, lastDay))
+            ProgressData(
+                points = response.totalPoints,
+                streak = response.currentStreak,
+                lastDay = response.lastClaimedDay
+            )
+        } catch (e: Exception) {
+            handleSyncError(e)
+            // Queue for later sync
+            queueOperation { saveProgress(points, streak, lastDay) }
+            // Return local data
+            ProgressData(points, streak, lastDay)
+        }
+    }
+    
+    override fun getProgressFlow(): Flow<ProgressData> {
+        // Combine local data with remote attempts
+        return dataStoreManager.progressFlow.onEach { localData ->
+            // Try to sync with server in the background if we're online
+            if (isOnline.value) {
+                externalScope.launch {
+                    try {
+                        val response = apiService.getCurrentUser()
+                        val remoteData = ProgressData(
+                            points = response.totalPoints,
+                            streak = response.currentStreak,
+                            lastDay = response.lastClaimedDay
+                        )
+                        
+                        // Update local if remote data is different
+                        if (remoteData != localData) {
+                            dataStoreManager.saveProgress(
+                                remoteData.points,
+                                remoteData.streak,
+                                remoteData.lastDay
+                            )
+                        }
+                    } catch (e: Exception) {
+                        handleSyncError(e)
+                    }
+                }
+            }
+        }
+    }
+    
+    // Seed
+    override suspend fun saveSeed(seed: Long, day: Int): Pair<Long, Int> {
+        // Save locally first
+        dataStoreManager.saveSeed(seed, day)
+        
+        // Try to sync with server
+        return try {
+            val response = apiService.saveSeed(SeedRequest(seed, day))
+            Pair(response.currentSeed, response.seedDay)
+        } catch (e: Exception) {
+            handleSyncError(e)
+            queueOperation { saveSeed(seed, day) }
+            Pair(seed, day)
+        }
+    }
+    
+    override fun getSeedFlow(): Flow<Pair<Long, Int>> {
+        return dataStoreManager.seedFlow.onEach { localData ->
+            if (isOnline.value) {
+                externalScope.launch {
+                    try {
+                        val seedInfo = apiService.saveSeed(SeedRequest(0, 0))
+                        val remoteData = Pair(seedInfo.currentSeed, seedInfo.seedDay)
+                        
+                        if (remoteData != localData) {
+                            dataStoreManager.saveSeed(remoteData.first, remoteData.second)
+                        }
+                    } catch (e: Exception) {
+                        handleSyncError(e)
+                    }
+                }
+            }
+        }
+    }
+    
+    // Task history
+    override suspend fun saveTaskHistory(quest: String, points: Int, status: TaskStatus) {
+        // Save locally first
+        dataStoreManager.saveTaskHistory(quest, points, status)
+        
+        // Try to sync with server
+        try {
+            apiService.saveTaskHistory(
+                TaskHistoryRequest(
+                    quest = quest,
+                    points = points,
+                    status = status.name
+                )
+            )
+        } catch (e: Exception) {
+            handleSyncError(e)
+            queueOperation { saveTaskHistory(quest, points, status) }
+        }
+    }
+    
+    override suspend fun getTaskHistory(): List<TaskProgress> {
+        return try {
+            // Try to get from server first if online
+            if (isOnline.value) {
+                val remoteHistory = apiService.getTaskHistory().map { dto ->
+                    // Format the timestamp to date and time strings
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+                    // Parse timestamp from the DTO - timestamp is always a String in TaskHistoryDto
+                    val (date, time) = try {
+                        val parseDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+                        val parsedDate = parseDateFormat.parse(dto.timestamp)
+                        if (parsedDate != null) {
+                            Pair(
+                                dateFormat.format(parsedDate),
+                                timeFormat.format(parsedDate)
+                            )
+                        } else {
+                            Log.e(TAG, "Failed to parse timestamp: null result")
+                            Pair("Unknown", "Unknown")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to parse timestamp: ${e.message}")
+                        Pair("Unknown", "Unknown")
+                    }
+                    
+                    TaskProgress(
+                        quest = dto.quest,
+                        points = dto.points,
+                        status = TaskStatus.valueOf(dto.status),
+                        date = date,
+                        time = time
+                    )
+                }
+                
+                // Update local cache with remote data
+                dataStoreManager.updateTaskHistoryCache(remoteHistory)
+                remoteHistory
+            } else {
+                // Use local data if offline
+                dataStoreManager.getTaskHistory().first()
+            }
+        } catch (e: Exception) {
+            handleSyncError(e)
+            // Fall back to local cache
+            dataStoreManager.getTaskHistory().first()
+        }
+    }
+    
+    override suspend fun clearTaskHistory() {
+        // Clear locally first
+        dataStoreManager.clearTaskHistory()
+        
+        // Try to sync with server
+        try {
+            apiService.clearTaskHistory()
+        } catch (e: Exception) {
+            handleSyncError(e)
+            queueOperation { clearTaskHistory() }
+        }
+    }
+    
+    // Reject info
+    override suspend fun saveRejectInfo(count: Int, day: Int): Pair<Int, Int> {
+        // Save locally first
+        dataStoreManager.saveRejectInfo(count, day)
+        
+        // Try to sync with server
+        return try {
+            val response = apiService.updateRejectInfo(RejectInfoRequest(count, day))
+            Pair(response.rejectCount, response.lastRejectDay)
+        } catch (e: Exception) {
+            handleSyncError(e)
+            queueOperation { saveRejectInfo(count, day) }
+            Pair(count, day)
+        }
+    }
+    
+    override fun getRejectInfoFlow(): Flow<Pair<Int, Int>> {
+        return dataStoreManager.rejectInfoFlow.onEach { localData ->
+            if (isOnline.value) {
+                externalScope.launch {
+                    try {
+                        val response = apiService.updateRejectInfo(RejectInfoRequest(0, 0))
+                        val remoteData = Pair(response.rejectCount, response.lastRejectDay)
+                        
+                        if (remoteData != localData) {
+                            dataStoreManager.saveRejectInfo(remoteData.first, remoteData.second)
+                        }
+                    } catch (e: Exception) {
+                        handleSyncError(e)
+                    }
+                }
+            }
+        }
+    }
+    
+    // Theme preference
+    override suspend fun saveThemePreference(themeMode: Int): Int {
+        // Save locally first
+        dataStoreManager.saveThemePreference(themeMode)
+        
+        // Try to sync with server
+        return try {
+            val response = apiService.saveThemePreference(ThemePreferenceRequest(themeMode))
+            response.themePreference
+        } catch (e: Exception) {
+            handleSyncError(e)
+            queueOperation { saveThemePreference(themeMode) }
+            themeMode
+        }
+    }
+    
+    override fun getThemePreferenceFlow(): Flow<Int> {
+        return dataStoreManager.themePreferenceFlow.onEach { localTheme ->
+            if (isOnline.value) {
+                externalScope.launch {
+                    try {
+                        val response = apiService.getThemePreference()
+                        
+                        if (response.themePreference != localTheme) {
+                            dataStoreManager.saveThemePreference(response.themePreference)
+                        }
+                    } catch (e: Exception) {
+                        handleSyncError(e)
+                    }
+                }
+            }
+        }
+    }
+    
+    // Helper methods
+    private fun handleSyncError(e: Exception) {
+        when (e) {
+            is IOException -> {
+                // Network error
+                Log.w(TAG, "Network error: ${e.message}")
+            }
+            is HttpException -> {
+                // HTTP error
+                Log.w(TAG, "HTTP error: ${e.code()}")
+                if (e.code() == 401 || e.code() == 403) {
+                    // Auth error - needs special handling
+                    Log.e(TAG, "Authentication error")
+                }
+            }
+            else -> {
+                // Other error
+                Log.e(TAG, "Unknown error: ${e.message}")
+            }
+        }
+    }
+    
+    private fun queueOperation(operation: suspend () -> Unit) {
+        synchronized(pendingOperations) {
+            pendingOperations.add(operation)
+            Log.d(TAG, "Operation queued. Total pending: ${pendingOperations.size}")
+        }
+    }
+    
+    private suspend fun processPendingOperations() {
+        // Get a copy of operations while holding the lock, then release it
+        val operationsToProcess = synchronized(pendingOperations) {
+            if (pendingOperations.isEmpty()) {
+                return
+            }
+            
+            Log.d(TAG, "Processing ${pendingOperations.size} pending operations")
+            
+            val operations = pendingOperations.toList()
+            pendingOperations.clear()
+            operations
+        }
+        
+        // Process operations outside the synchronized block
+        for (operation in operationsToProcess) {
+            try {
+                operation() // Suspension point now outside synchronized block
+                Log.d(TAG, "Pending operation executed successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to execute pending operation: ${e.message}")
+                handleSyncError(e)
+                queueOperation(operation) // Safe to call, as it has its own synchronization
+            }
+        }
+    }
+} 
