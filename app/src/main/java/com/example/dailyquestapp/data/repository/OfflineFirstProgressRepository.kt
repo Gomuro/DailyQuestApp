@@ -179,49 +179,66 @@ class OfflineFirstProgressRepository(
         return try {
             // Try to get from server first if online
             if (isOnline.value) {
-                val remoteHistory = apiService.getTaskHistory().map { dto ->
-                    // Format the timestamp to date and time strings
-                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                try {
+                    // Add a timeout for network request
+                    val remoteHistory = kotlinx.coroutines.withTimeoutOrNull(5000) {
+                        apiService.getTaskHistory().map { dto ->
+                            // Format the timestamp to date and time strings
+                            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                            val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-                    // Parse timestamp from the DTO - timestamp is always a String in TaskHistoryDto
-                    val (date, time) = try {
-                        val parseDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
-                        val parsedDate = parseDateFormat.parse(dto.timestamp)
-                        if (parsedDate != null) {
-                            Pair(
-                                dateFormat.format(parsedDate),
-                                timeFormat.format(parsedDate)
+                            // Parse timestamp from the DTO - timestamp is always a String in TaskHistoryDto
+                            val (date, time) = try {
+                                val parseDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+                                val parsedDate = parseDateFormat.parse(dto.timestamp)
+                                if (parsedDate != null) {
+                                    Pair(
+                                        dateFormat.format(parsedDate),
+                                        timeFormat.format(parsedDate)
+                                    )
+                                } else {
+                                    Log.e(TAG, "Failed to parse timestamp: null result")
+                                    Pair("Unknown", "Unknown")
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to parse timestamp: ${e.message}")
+                                Pair("Unknown", "Unknown")
+                            }
+                            
+                            TaskProgress(
+                                quest = dto.quest,
+                                points = dto.points,
+                                status = TaskStatus.valueOf(dto.status),
+                                date = date,
+                                time = time
                             )
-                        } else {
-                            Log.e(TAG, "Failed to parse timestamp: null result")
-                            Pair("Unknown", "Unknown")
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to parse timestamp: ${e.message}")
-                        Pair("Unknown", "Unknown")
                     }
                     
-                    TaskProgress(
-                        quest = dto.quest,
-                        points = dto.points,
-                        status = TaskStatus.valueOf(dto.status),
-                        date = date,
-                        time = time
-                    )
+                    if (remoteHistory != null) {
+                        // Update local cache with remote data
+                        dataStoreManager.updateTaskHistoryCache(remoteHistory)
+                        return remoteHistory
+                    } else {
+                        Log.w(TAG, "Network request timed out, falling back to local data")
+                        // Fall back to local data if timeout occurs
+                        return dataStoreManager.getTaskHistory().first()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error fetching remote history: ${e.message}")
+                    handleSyncError(e)
+                    // Fall back to local data
+                    return dataStoreManager.getTaskHistory().first()
                 }
-                
-                // Update local cache with remote data
-                dataStoreManager.updateTaskHistoryCache(remoteHistory)
-                remoteHistory
             } else {
                 // Use local data if offline
-                dataStoreManager.getTaskHistory().first()
+                return dataStoreManager.getTaskHistory().first()
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Error in getTaskHistory: ${e.message}")
             handleSyncError(e)
-            // Fall back to local cache
-            dataStoreManager.getTaskHistory().first()
+            // If all else fails, return empty list to avoid indefinite loading
+            return emptyList()
         }
     }
     

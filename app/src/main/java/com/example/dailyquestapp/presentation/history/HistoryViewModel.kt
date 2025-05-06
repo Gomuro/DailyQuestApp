@@ -28,11 +28,19 @@ class HistoryViewModel constructor(
     
     private fun loadHistory() {
         viewModelScope.launch {
-            _isLoading.value = true
-            // Get history items directly since we don't have a flow version
-            val history = progressRepository.getTaskHistory()
-            _historyItems.value = history
-            _isLoading.value = false
+            try {
+                _isLoading.value = true
+                // Get history items directly since we don't have a flow version
+                val history = progressRepository.getTaskHistory()
+                _historyItems.value = history
+            } catch (e: Exception) {
+                // Log error and set empty list to avoid UI issues
+                android.util.Log.e("HistoryViewModel", "Error loading history: ${e.message}")
+                _historyItems.value = emptyList()
+            } finally {
+                // Ensure loading state is always set to false, even if there's an error
+                _isLoading.value = false
+            }
         }
     }
 
