@@ -1,5 +1,15 @@
 const asyncHandler = require("express-async-handler");
 const progressService = require("../services/progressService");
+const User = require("../models/userModel");
+
+// Helper function to get today's day of year (1-366)
+const getTodayDayOfYear = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now - start;
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay);
+};
 
 /**
  * @desc    Save user progress
@@ -41,13 +51,57 @@ const saveTaskHistory = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const { quest, points, status } = req.body;
 
+  console.log(`[saveTaskHistory] Received request for user ${userId}:`, {
+    quest,
+    points,
+    status,
+  });
+
   const result = await progressService.saveTaskHistory(userId, {
     quest,
     points,
     status,
   });
 
-  res.status(200).json(result);
+  console.log(`[saveTaskHistory] Task history saved:`, result);
+
+  if (status === "COMPLETED") {
+    try {
+      const user = await User.findById(userId);
+      console.log(`[saveTaskHistory] Found user:`, {
+        totalPoints: user.totalPoints,
+        currentStreak: user.currentStreak,
+        lastClaimedDay: user.lastClaimedDay,
+      });
+
+      const today = getTodayDayOfYear();
+      console.log(`[saveTaskHistory] Today's day of year:`, today);
+
+      let newStreak = 1;
+      if (user.lastClaimedDay === today - 1) {
+        newStreak = user.currentStreak + 1;
+      }
+      console.log(`[saveTaskHistory] New streak calculated:`, newStreak);
+
+      const oldPoints = user.totalPoints;
+      user.totalPoints += points;
+      user.currentStreak = newStreak;
+      user.lastClaimedDay = today;
+
+      await user.save();
+      console.log(`[saveTaskHistory] User updated:`, {
+        oldPoints,
+        newPoints: user.totalPoints,
+        newStreak: user.currentStreak,
+        newLastClaimedDay: user.lastClaimedDay,
+      });
+    } catch (error) {
+      console.error(`[saveTaskHistory] Error updating user:`, error);
+      throw error;
+    }
+  }
+
+  res.status(200).json({ message: "Task history saved successfully" });
 });
 
 /**

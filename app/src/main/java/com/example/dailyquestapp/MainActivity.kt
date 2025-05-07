@@ -371,30 +371,29 @@ class MainActivity : ComponentActivity() {
 
                         Button(
                             onClick = {
-                                if (!showReward) {
+                                if (!showReward && currentQuest != null) {
                                     val calendar = Calendar.getInstance()
                                     val today = calendar.get(Calendar.DAY_OF_YEAR)
-                                    
-                                    if (lastClaimedDay != today) {
-                                        currentStreak = if (lastClaimedDay == today - 1) currentStreak + 1 else 1
-                                        lastClaimedDay = today
-                                        showStreakAnimation = true
-                                    }
-                                    
-                                    rewardedQuest = currentQuest
-                                    showReward = true
-                                    val points = rewards[rewardedQuest!!.second % rewards.size]
+                                    val isNewDay = lastClaimedDay != today
+                                    val newStreak = if (isNewDay && lastClaimedDay == today - 1) currentStreak + 1 else 1
+
+                                    // Use currentQuest instead of rewardedQuest
+                                    val points = rewards[currentQuest.second % rewards.size]
                                         .removeSuffix(" points").toInt()
-                                    totalPoints += points
-                                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                    val newTotalPoints = progressState.points + points
+
+                                    // Save progress to ViewModel (which will persist and sync)
                                     viewModel.saveProgress(
-                                        points = totalPoints,
-                                        streak = currentStreak,
-                                        lastDay = lastClaimedDay,
+                                        points = newTotalPoints,
+                                        streak = newStreak,
+                                        lastDay = today,
                                         quest = currentQuest.first,
                                         questPoints = points,
                                         status = TaskStatus.COMPLETED
                                     )
+                                    showReward = true
+                                    wasRejected = false
+                                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                                 }
                             },
                             modifier = Modifier
