@@ -72,6 +72,12 @@ class QuestViewModel constructor(
         viewModelScope.launch {
             dataStoreManager.saveProgress(points, streak, lastDay)
             dataStoreManager.saveTaskHistory(quest, questPoints, status)
+            // Also upload to server
+            try {
+                progressRepository.saveTaskHistory(quest, questPoints, status)
+            } catch (e: Exception) {
+                Log.e("QuestViewModel", "Failed to upload quest history: ${e.message}")
+            }
         }
     }
 

@@ -11,6 +11,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import android.util.Log
 import java.io.IOException
+import retrofit2.HttpException
+import org.json.JSONObject
 
 class UserRepository constructor(
     private val apiService: ApiService,
@@ -23,6 +25,14 @@ class UserRepository constructor(
             val response = apiService.registerUser(RegisterRequest(username, email, password))
             tokenManager.saveToken(response.token)
             return response.token
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorMessage = try {
+                JSONObject(errorBody ?: "{}").optString("message", "Registration failed")
+            } catch (ex: Exception) {
+                "Registration failed"
+            }
+            throw Exception(errorMessage)
         } catch (e: Exception) {
             when (e) {
                 is IOException -> Log.e(TAG, "Network error during registration: ${e.message}")
@@ -33,11 +43,24 @@ class UserRepository constructor(
         }
     }
     
-    suspend fun loginUser(email: String, password: String): String {
+    suspend fun loginUser(email: String, password: String, rememberMe: Boolean): String {
         try {
             val response = apiService.loginUser(LoginRequest(email, password))
-            tokenManager.saveToken(response.token)
+            if (rememberMe) {
+                tokenManager.saveToken(response.token)
+            } else {
+                // Optionally, clear token on logout or app close
+                tokenManager.clearToken()
+            }
             return response.token
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorMessage = try {
+                JSONObject(errorBody ?: "{}").optString("message", "Login failed")
+            } catch (ex: Exception) {
+                "Login failed"
+            }
+            throw Exception(errorMessage)
         } catch (e: Exception) {
             when (e) {
                 is IOException -> Log.e(TAG, "Network error during login: ${e.message}")

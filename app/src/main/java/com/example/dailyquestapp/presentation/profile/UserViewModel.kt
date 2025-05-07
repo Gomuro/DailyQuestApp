@@ -94,23 +94,31 @@ class UserViewModel : ViewModel(), KoinComponent {
     }
     
     // Login function
-    fun login(context: Context, email: String, password: String, onResult: (Boolean) -> Unit) {
+    fun login(context: Context, email: String, password: String, rememberMe: Boolean, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _errorMessage.value = null
                 
                 // Call server login API
-                val token = userRepository.loginUser(email, password)
+                val token = userRepository.loginUser(email, password, rememberMe)
                 
                 // If server login is successful, store basic user info locally for UI
                 if (token.isNotEmpty()) {
                     // Extract username from email for display (optional)
                     val displayName = email.substringBefore("@")
                     
-                    context.dataStore.edit { preferences ->
-                        preferences[IS_LOGGED_IN] = true
-                        preferences[USERNAME] = displayName
+                    if (rememberMe) {
+                        context.dataStore.edit { preferences ->
+                            preferences[IS_LOGGED_IN] = true
+                            preferences[USERNAME] = displayName
+                        }
+                    } else {
+                        // If not remembering, clear login state on logout or app close
+                        context.dataStore.edit { preferences ->
+                            preferences[IS_LOGGED_IN] = false
+                            preferences[USERNAME] = ""
+                        }
                     }
                     
                     // Update UI state
@@ -193,7 +201,7 @@ class UserViewModel : ViewModel(), KoinComponent {
                     onResult(false)
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Registration error: ${e.message}"
+                _errorMessage.value = e.message ?: "Registration error"
                 Log.e(TAG, "Error registering: ${e.message}")
                 onResult(false)
             } finally {

@@ -38,12 +38,56 @@ fun MainNavigation(
     onDailyQuestScreen: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    var currentScreen by remember { mutableStateOf(Screen.HOME) }
+    var currentScreen by remember { mutableStateOf(Screen.LOGIN) } // Start with login screen
     val isUserLoggedIn by userViewModel.isLoggedIn.collectAsState()
     val username by userViewModel.username.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
     val errorMessage by userViewModel.errorMessage.collectAsState()
     
+    // If user is not logged in, show login screen
+    if (!isUserLoggedIn) {
+        when (currentScreen) {
+            Screen.LOGIN -> {
+                LoginScreen(
+                    onLoginClick = { email, password, rememberMe ->
+                        userViewModel.login(context, email, password, rememberMe) { success ->
+                            if (success) {
+                                currentScreen = Screen.HOME
+                            }
+                        }
+                    },
+                    onCancelClick = { /* No cancel action needed */ },
+                    onRegisterClick = { currentScreen = Screen.REGISTER },
+                    isLoading = isLoading,
+                    errorMessage = errorMessage,
+                    onErrorDismiss = { userViewModel.clearError() }
+                )
+            }
+            Screen.REGISTER -> {
+                RegisterScreen(
+                    onRegisterClick = { username, email, password ->
+                        userViewModel.register(context, username, email, password) { success ->
+                            if (success) {
+                                currentScreen = Screen.HOME
+                            }
+                        }
+                    },
+                    onCancelClick = { currentScreen = Screen.LOGIN },
+                    onLoginClick = { currentScreen = Screen.LOGIN },
+                    isLoading = isLoading,
+                    errorMessage = errorMessage,
+                    onErrorDismiss = { userViewModel.clearError() }
+                )
+            }
+            else -> {
+                // If somehow we're on another screen but not logged in, go to login
+                currentScreen = Screen.LOGIN
+            }
+        }
+        return
+    }
+    
+    // User is logged in, show main app content
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -57,12 +101,8 @@ fun MainNavigation(
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
                     label = { Text("Profile") },
-                    selected = currentScreen == Screen.PROFILE || 
-                              currentScreen == Screen.LOGIN || 
-                              currentScreen == Screen.REGISTER,
-                    onClick = { 
-                        currentScreen = if (isUserLoggedIn) Screen.PROFILE else Screen.LOGIN 
-                    }
+                    selected = currentScreen == Screen.PROFILE,
+                    onClick = { currentScreen = Screen.PROFILE }
                 )
             }
         }
@@ -79,7 +119,7 @@ fun MainNavigation(
                         isLoading = isLoading,
                         errorMessage = errorMessage,
                         onErrorDismiss = { userViewModel.clearError() },
-                        onLoginClick = { currentScreen = Screen.LOGIN },
+                        onLoginClick = { /* Not needed, already logged in */ },
                         onLogoutClick = { 
                             userViewModel.logout(context) { success ->
                                 if (success) {
@@ -87,40 +127,12 @@ fun MainNavigation(
                                 }
                             }
                         },
-                        onRegisterClick = { currentScreen = Screen.REGISTER }
+                        onRegisterClick = { /* Not needed, already logged in */ }
                     )
                 }
-                Screen.LOGIN -> {
-                    LoginScreen(
-                        onLoginClick = { email, password ->
-                            userViewModel.login(context, email, password) { success ->
-                                if (success) {
-                                    currentScreen = Screen.PROFILE
-                                }
-                            }
-                        },
-                        onCancelClick = { currentScreen = Screen.HOME },
-                        onRegisterClick = { currentScreen = Screen.REGISTER },
-                        isLoading = isLoading,
-                        errorMessage = errorMessage,
-                        onErrorDismiss = { userViewModel.clearError() }
-                    )
-                }
-                Screen.REGISTER -> {
-                    RegisterScreen(
-                        onRegisterClick = { username, email, password ->
-                            userViewModel.register(context, username, email, password) { success ->
-                                if (success) {
-                                    currentScreen = Screen.PROFILE
-                                }
-                            }
-                        },
-                        onCancelClick = { currentScreen = Screen.HOME },
-                        onLoginClick = { currentScreen = Screen.LOGIN },
-                        isLoading = isLoading,
-                        errorMessage = errorMessage,
-                        onErrorDismiss = { userViewModel.clearError() }
-                    )
+                else -> {
+                    // Should not happen when logged in, but just in case
+                    currentScreen = Screen.HOME
                 }
             }
         }

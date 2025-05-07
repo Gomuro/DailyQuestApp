@@ -16,8 +16,8 @@ import android.util.Patterns
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginClick: (email: String, password: String) -> Unit,
-    onCancelClick: () -> Unit,
+    onLoginClick: (email: String, password: String, rememberMe: Boolean) -> Unit,
+    onCancelClick: () -> Unit = {},
     onRegisterClick: () -> Unit,
     isLoading: Boolean = false,
     errorMessage: String? = null,
@@ -28,6 +28,7 @@ fun LoginScreen(
     var isEmailError by remember { mutableStateOf(false) }
     var isEmailFormatError by remember { mutableStateOf(false) }
     var isPasswordError by remember { mutableStateOf(false) }
+    var rememberMe by remember { mutableStateOf(false) }
     
     val snackbarHostState = remember { SnackbarHostState() }
     
@@ -63,8 +64,15 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Login",
+                    text = "Welcome to Daily Quest",
                     style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                Text(
+                    text = "Please log in to continue",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 32.dp)
                 )
                 
@@ -120,43 +128,47 @@ fun LoginScreen(
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 32.dp)
+                        .padding(bottom = 16.dp)
                 )
                 
-                // Action buttons
+                // Remember me checkbox
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
                 ) {
-                    Button(
-                        onClick = { onCancelClick() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    Checkbox(
+                        checked = rememberMe,
+                        onCheckedChange = { rememberMe = it },
                         enabled = !isLoading
-                    ) {
-                        Text("Cancel")
-                    }
-                    
-                    Button(
-                        onClick = { 
-                            isEmailError = email.isEmpty()
-                            isEmailFormatError = !isValidEmail(email) && email.isNotEmpty()
-                            isPasswordError = password.isEmpty()
-                            
-                            val validInputs = !isEmailError && !isEmailFormatError && !isPasswordError
-                            
-                            if (validInputs) {
-                                onLoginClick(email, password)
-                            }
-                        },
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                        enabled = !isLoading
-                    ) {
-                        Text("Login")
-                    }
+                    )
+                    Text(
+                        text = "Remember me",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                
+                // Login button
+                Button(
+                    onClick = { 
+                        isEmailError = email.isEmpty()
+                        isEmailFormatError = !isValidEmail(email) && email.isNotEmpty()
+                        isPasswordError = password.isEmpty()
+                        
+                        val validInputs = !isEmailError && !isEmailFormatError && !isPasswordError
+                        
+                        if (validInputs) {
+                            onLoginClick(email, password, rememberMe)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    enabled = !isLoading
+                ) {
+                    Text("Login")
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))

@@ -70,8 +70,15 @@ fun RegisterScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Create Account",
+                    text = "Create Your Account",
                     style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                Text(
+                    text = "Join Daily Quest to start your adventure",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 32.dp)
                 )
                 
@@ -191,44 +198,29 @@ fun RegisterScreen(
                     enabled = !isLoading
                 )
                 
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                // Register button
+                Button(
+                    onClick = { 
+                        isUsernameError = username.isEmpty()
+                        isEmailError = email.isEmpty()
+                        isEmailFormatError = !isValidEmail(email) && email.isNotEmpty()
+                        isPasswordError = password.isEmpty()
+                        isConfirmPasswordError = confirmPassword.isEmpty()
+                        passwordsMatch = password == confirmPassword
+                        
+                        val validInputs = !isUsernameError && !isEmailError && !isEmailFormatError && 
+                                          !isPasswordError && !isConfirmPasswordError && passwordsMatch
+                        
+                        if (validInputs) {
+                            onRegisterClick(username, email, password)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    enabled = !isLoading
                 ) {
-                    Button(
-                        onClick = { onCancelClick() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
-                        enabled = !isLoading
-                    ) {
-                        Text("Cancel")
-                    }
-                    
-                    Button(
-                        onClick = { 
-                            isUsernameError = username.isEmpty()
-                            isEmailError = email.isEmpty()
-                            isEmailFormatError = !isValidEmail(email) && email.isNotEmpty()
-                            isPasswordError = password.isEmpty()
-                            isConfirmPasswordError = confirmPassword.isEmpty()
-                            passwordsMatch = password == confirmPassword
-                            
-                            val validInputs = !isUsernameError && !isEmailError && !isEmailFormatError && 
-                                              !isPasswordError && !isConfirmPasswordError && passwordsMatch
-                            
-                            if (validInputs) {
-                                onRegisterClick(username, email, password)
-                            }
-                        },
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                        enabled = !isLoading
-                    ) {
-                        Text("Register")
-                    }
+                    Text("Register")
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
