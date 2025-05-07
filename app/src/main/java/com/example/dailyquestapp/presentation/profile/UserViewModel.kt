@@ -50,11 +50,12 @@ class UserViewModel : ViewModel(), KoinComponent {
     }
     
     // Initialize the user state from DataStore
-    fun initialize(context: Context) {
+    fun initialize(context: Context, onAuthStateReady: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
+                _isLoading.value = true
+                
                 // Check if token exists in TokenManager (via Repository)
-                // This is now a suspend function call, properly run in a coroutine
                 val isTokenValid = userRepository.isUserLoggedIn()
                 
                 if (isTokenValid) {
@@ -78,10 +79,18 @@ class UserViewModel : ViewModel(), KoinComponent {
                         // If server auth fails, log out
                         Log.e(TAG, "Token validation failed: ${e.message}")
                         logout(context) { /* ignore result */ }
+                        
+                        // Update authentication state and notify
+                        _isLoggedIn.value = false
+                        onAuthStateReady(false)
+                        return@launch
                     }
+                    
+                    onAuthStateReady(true)
                 } else {
                     _isLoggedIn.value = false
                     _username.value = ""
+                    onAuthStateReady(false)
                 }
                 
                 Log.d(TAG, "User initialized: logged in=${_isLoggedIn.value}, username=${_username.value}")
@@ -89,6 +98,9 @@ class UserViewModel : ViewModel(), KoinComponent {
                 Log.e(TAG, "Error initializing user: ${e.message}")
                 _isLoggedIn.value = false
                 _username.value = ""
+                onAuthStateReady(false)
+            } finally {
+                _isLoading.value = false
             }
         }
     }

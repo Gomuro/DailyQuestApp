@@ -84,6 +84,7 @@ import com.example.dailyquestapp.ui.theme.LocalThemeMode
 import androidx.compose.runtime.CompositionLocalProvider
 import com.example.dailyquestapp.navigation.MainNavigation
 import com.example.dailyquestapp.presentation.profile.UserViewModel
+import com.example.dailyquestapp.navigation.Screen
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -110,21 +111,75 @@ class MainActivity : ComponentActivity() {
                     val questViewModel: QuestViewModel by viewModel<QuestViewModel>()
                     val userViewModel: UserViewModel by viewModel<UserViewModel>()
                     
-                    // Initialize user auth state
+                    // Create a state to track authentication status
+                    var authState by remember { mutableStateOf(AuthState.CHECKING) }
+                    
+                    // Initialize user auth state and determine what screen to show
                     LaunchedEffect(Unit) {
-                        userViewModel.initialize(applicationContext)
+                        userViewModel.initialize(applicationContext) { isLoggedIn ->
+                            authState = if (isLoggedIn) AuthState.AUTHENTICATED else AuthState.UNAUTHENTICATED
+                        }
                     }
                     
-                    MainNavigation(
-                        questViewModel = questViewModel,
-                        userViewModel = userViewModel,
-                        onDailyQuestScreen = {
-                            DailyQuestScreen(questViewModel)
+                    // Based on auth state, show appropriate screen
+                    when (authState) {
+                        AuthState.CHECKING -> {
+                            // Show splash screen / loading indicator
+                            SplashScreen()
                         }
-                    )
+                        AuthState.AUTHENTICATED -> {
+                            // User is authenticated, show main app content
+                            MainNavigation(
+                                questViewModel = questViewModel,
+                                userViewModel = userViewModel,
+                                onDailyQuestScreen = {
+                                    DailyQuestScreen(questViewModel)
+                                },
+                                startScreen = Screen.HOME // Explicitly start at home screen
+                            )
+                        }
+                        AuthState.UNAUTHENTICATED -> {
+                            // User is not authenticated, show login/register flow
+                            MainNavigation(
+                                questViewModel = questViewModel,
+                                userViewModel = userViewModel,
+                                onDailyQuestScreen = {
+                                    DailyQuestScreen(questViewModel)
+                                },
+                                startScreen = Screen.LOGIN // Explicitly start at login screen
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+    
+    @Composable
+    fun SplashScreen() {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // You can add an app logo or animation here
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Daily Quest App", style = MaterialTheme.typography.headlineMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Loading...", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
+    
+    // Auth states to manage app startup flow
+    enum class AuthState {
+        CHECKING,
+        AUTHENTICATED,
+        UNAUTHENTICATED
     }
 
     @OptIn(ExperimentalMaterial3Api::class)

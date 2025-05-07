@@ -1,23 +1,33 @@
 package com.example.dailyquestapp.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.unit.dp
 import com.example.dailyquestapp.presentation.profile.LoginScreen
 import com.example.dailyquestapp.presentation.profile.ProfileScreen
 import com.example.dailyquestapp.presentation.profile.RegisterScreen
@@ -35,14 +45,45 @@ enum class Screen {
 fun MainNavigation(
     questViewModel: QuestViewModel,
     userViewModel: UserViewModel,
-    onDailyQuestScreen: @Composable () -> Unit
+    onDailyQuestScreen: @Composable () -> Unit,
+    startScreen: Screen = Screen.LOGIN // Default to LOGIN for backward compatibility
 ) {
     val context = LocalContext.current
-    var currentScreen by remember { mutableStateOf(Screen.LOGIN) } // Start with login screen
     val isUserLoggedIn by userViewModel.isLoggedIn.collectAsState()
     val username by userViewModel.username.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
     val errorMessage by userViewModel.errorMessage.collectAsState()
+    
+    // Track if initial authentication check is complete
+    var isInitializing by remember { mutableStateOf(true) }
+    
+    // Effect to track when authentication state is determined
+    LaunchedEffect(isUserLoggedIn, isLoading) {
+        if (!isLoading) {
+            isInitializing = false
+        }
+    }
+    
+    // Show loading indicator during initial authentication check
+    if (isInitializing && isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Loading...", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        return
+    }
+    
+    // Use the provided startScreen parameter instead of determining it here
+    var currentScreen by remember { mutableStateOf(startScreen) }
     
     // If user is not logged in, show login screen
     if (!isUserLoggedIn) {
