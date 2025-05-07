@@ -27,17 +27,16 @@ fun ProgressResponse.toProgressData(): ProgressData {
 
 // TaskHistoryDto to TaskProgress
 fun TaskHistoryDto.toTaskProgress(): TaskProgress {
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
-    val date = dateFormat.parse(this.timestamp)
-    val simpleDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    val simpleTimeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    
+    val parseDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    val parsedDate = parseDateFormat.parse(this.timestamp)
     return TaskProgress(
         quest = this.quest,
         points = this.points,
         status = TaskStatus.valueOf(this.status),
-        date = simpleDateFormat.format(date ?: Date()),
-        time = simpleTimeFormat.format(date ?: Date())
+        date = if (parsedDate != null) dateFormat.format(parsedDate) else "",
+        time = if (parsedDate != null) timeFormat.format(parsedDate) else ""
     )
 }
 
