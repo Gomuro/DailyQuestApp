@@ -91,33 +91,39 @@ class OfflineFirstProgressRepository(
     }
     
     override fun getProgressFlow(): Flow<ProgressData> {
-        // Combine local data with remote attempts
-        return dataStoreManager.progressFlow.onEach { localData ->
-            // Try to sync with server in the background if we're online
-            if (isOnline.value) {
-                externalScope.launch {
-                    try {
-                        val response = apiService.getCurrentUser()
-                        val remoteData = ProgressData(
-                            points = response.totalPoints,
-                            streak = response.currentStreak,
-                            lastDay = response.lastClaimedDay
-                        )
-                        
-                        // Update local if remote data is different
-                        if (remoteData != localData) {
-                            dataStoreManager.saveProgress(
-                                remoteData.points,
-                                remoteData.streak,
-                                remoteData.lastDay
+        // Combine local data with remote attempts, but with debouncing and optimization
+        return dataStoreManager.progressFlow
+            .distinctUntilChanged() // Only emit when values actually change
+            .onEach { localData ->
+                // Try to sync with server in the background if we're online
+                if (isOnline.value) {
+                    externalScope.launch {
+                        try {
+                            val response = apiService.getCurrentUser()
+                            val remoteData = ProgressData(
+                                points = response.totalPoints,
+                                streak = response.currentStreak,
+                                lastDay = response.lastClaimedDay
                             )
+                            
+                            // Only update local if remote data is different and newer
+                            if (remoteData != localData && 
+                                (remoteData.points > localData.points || 
+                                 remoteData.streak > localData.streak)) {
+                                Log.d(TAG, "Updating local data with remote data: $remoteData")
+                                dataStoreManager.saveProgress(
+                                    remoteData.points,
+                                    remoteData.streak,
+                                    remoteData.lastDay
+                                )
+                            }
+                        } catch (e: Exception) {
+                            handleSyncError(e)
                         }
-                    } catch (e: Exception) {
-                        handleSyncError(e)
                     }
                 }
             }
-        }
+            .debounce(500) // Add debouncing to prevent rapid updates
     }
     
     // Seed
