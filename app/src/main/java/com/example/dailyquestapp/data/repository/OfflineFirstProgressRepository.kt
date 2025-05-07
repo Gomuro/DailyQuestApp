@@ -18,6 +18,8 @@ import retrofit2.HttpException
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Implementation of ProgressRepository that follows an offline-first approach:
@@ -47,6 +49,10 @@ class OfflineFirstProgressRepository(
     
     // Queue of operations to sync when back online
     private val pendingOperations = mutableListOf<suspend () -> Unit>()
+
+    // Track ongoing theme operations to prevent duplicate calls
+    private val themeMutex = Mutex()
+    private var pendingThemeOperation = false
 
     init {
         // Observe network connectivity changes
@@ -282,33 +288,50 @@ class OfflineFirstProgressRepository(
         // Save locally first
         dataStoreManager.saveThemePreference(themeMode)
         
-        // Try to sync with server
-        return try {
-            val response = apiService.saveThemePreference(ThemePreferenceRequest(themeMode))
-            response.themePreference
-        } catch (e: Exception) {
-            handleSyncError(e)
-            queueOperation { saveThemePreference(themeMode) }
-            themeMode
+        // Use mutex to ensure only one theme operation happens at a time
+        return themeMutex.withLock {
+            try {
+                Log.d(TAG, "Saving theme preference to server: $themeMode")
+                pendingThemeOperation = true
+                val response = apiService.saveThemePreference(ThemePreferenceRequest(themeMode))
+                Log.d(TAG, "Theme preference saved to server: ${response.themePreference}")
+                response.themePreference
+            } catch (e: Exception) {
+                handleSyncError(e)
+                queueOperation { saveThemePreference(themeMode) }
+                themeMode
+            } finally {
+                pendingThemeOperation = false
+            }
         }
     }
     
     override fun getThemePreferenceFlow(): Flow<Int> {
-        return dataStoreManager.themePreferenceFlow.onEach { localTheme ->
-            if (isOnline.value) {
-                externalScope.launch {
-                    try {
-                        val response = apiService.getThemePreference()
-                        
-                        if (response.themePreference != localTheme) {
-                            dataStoreManager.saveThemePreference(response.themePreference)
+        return dataStoreManager.themePreferenceFlow
+            .distinctUntilChanged()
+            .onEach { localTheme ->
+                // Only fetch from server if we're online and no theme operation is ongoing
+                if (isOnline.value && !pendingThemeOperation) {
+                    // Use mutex to ensure only one theme operation happens at a time
+                    externalScope.launch {
+                        themeMutex.withLock {
+                            if (!pendingThemeOperation) { // Check again inside lock
+                                try {
+                                    Log.d(TAG, "Fetching theme preference from server")
+                                    val response = apiService.getThemePreference()
+                                    if (response.themePreference != localTheme) {
+                                        Log.d(TAG, "Updating local theme with remote value: ${response.themePreference}")
+                                        dataStoreManager.saveThemePreference(response.themePreference)
+                                    }
+                                } catch (e: Exception) {
+                                    handleSyncError(e)
+                                }
+                            }
                         }
-                    } catch (e: Exception) {
-                        handleSyncError(e)
                     }
                 }
             }
-        }
+            .debounce(500)
     }
     
     // Helper methods

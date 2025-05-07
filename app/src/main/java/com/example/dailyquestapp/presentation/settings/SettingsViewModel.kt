@@ -31,9 +31,18 @@ class SettingsViewModel constructor(
     }
     
     fun setThemeMode(themeMode: Int) {
+        // Set the UI state immediately to prevent flickering
+        _themeMode.value = themeMode
+        
+        // Then update the repository
         viewModelScope.launch {
-            progressRepository.saveThemePreference(themeMode)
-            _themeMode.value = themeMode
+            try {
+                progressRepository.saveThemePreference(themeMode)
+                // State is already updated, no need to set it again
+            } catch (e: Exception) {
+                // If there was an error, we could log it or handle it accordingly
+                android.util.Log.e("SettingsViewModel", "Error saving theme: ${e.message}")
+            }
         }
     }
 } 
