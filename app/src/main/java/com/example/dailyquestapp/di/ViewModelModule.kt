@@ -1,5 +1,6 @@
 package com.example.dailyquestapp.di
 
+import com.example.dailyquestapp.presentation.goal.GoalViewModel
 import com.example.dailyquestapp.presentation.history.HistoryViewModel
 import com.example.dailyquestapp.presentation.profile.UserViewModel
 import com.example.dailyquestapp.presentation.quest.QuestViewModel
@@ -20,4 +21,7 @@ val viewModelModule = module {
     
     // Register UserViewModel for authentication
     viewModel { UserViewModel() }
+    
+    // Register GoalViewModel
+    viewModel { GoalViewModel() }
 } 

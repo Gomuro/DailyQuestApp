@@ -24,6 +24,16 @@ class DataStoreManager(context: Context) {
         val REJECT_COUNT = intPreferencesKey("reject_count")
         val LAST_REJECT_DAY = intPreferencesKey("last_reject_day")
         val THEME_PREFERENCE = intPreferencesKey("theme_preference")
+        
+        // Goal related preferences
+        val USER_GOAL_TITLE = stringPreferencesKey("user_goal_title")
+        val USER_GOAL_DESCRIPTION = stringPreferencesKey("user_goal_description")
+        val USER_GOAL_CATEGORY = stringPreferencesKey("user_goal_category")
+        val USER_GOAL_TARGET_DATE = longPreferencesKey("user_goal_target_date")
+        val USER_GOAL_CREATED_DATE = longPreferencesKey("user_goal_created_date")
+        val USER_GOAL_COMPLETED = booleanPreferencesKey("user_goal_completed")
+        val USER_GOAL_ACTIVE = booleanPreferencesKey("user_goal_active")
+        val HAS_SET_INITIAL_GOAL = booleanPreferencesKey("has_set_initial_goal")
     }
 
     suspend fun saveProgress(
@@ -170,6 +180,79 @@ class DataStoreManager(context: Context) {
             preferences[TASK_HISTORY] = historyEntries
         }
     }
+
+    /**
+     * Save the user's goal information
+     */
+    suspend fun saveUserGoal(
+        title: String,
+        description: String,
+        category: String,
+        targetDate: Date? = null
+    ) {
+        dataStore.edit { preferences ->
+            preferences[USER_GOAL_TITLE] = title
+            preferences[USER_GOAL_DESCRIPTION] = description
+            preferences[USER_GOAL_CATEGORY] = category
+            preferences[USER_GOAL_CREATED_DATE] = Date().time
+            targetDate?.let { preferences[USER_GOAL_TARGET_DATE] = it.time }
+            preferences[USER_GOAL_COMPLETED] = false
+            preferences[USER_GOAL_ACTIVE] = true
+            preferences[HAS_SET_INITIAL_GOAL] = true
+        }
+    }
+
+    /**
+     * Check if the user has set their initial goal
+     */
+    val hasSetInitialGoal: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[HAS_SET_INITIAL_GOAL] ?: false
+        }
+
+    /**
+     * Get the user's current goal
+     */
+    val userGoalFlow: Flow<UserGoalData?> = dataStore.data
+        .map { preferences ->
+            val title = preferences[USER_GOAL_TITLE] ?: return@map null
+            val description = preferences[USER_GOAL_DESCRIPTION] ?: ""
+            
+            UserGoalData(
+                title = title,
+                description = description,
+                category = preferences[USER_GOAL_CATEGORY] ?: "PERSONAL",
+                targetDate = preferences[USER_GOAL_TARGET_DATE]?.let { Date(it) },
+                createdDate = Date(preferences[USER_GOAL_CREATED_DATE] ?: Date().time),
+                isCompleted = preferences[USER_GOAL_COMPLETED] ?: false,
+                isActive = preferences[USER_GOAL_ACTIVE] ?: true
+            )
+        }
+
+    /**
+     * Mark the current goal as completed
+     */
+    suspend fun completeUserGoal() {
+        dataStore.edit { preferences ->
+            preferences[USER_GOAL_COMPLETED] = true
+            preferences[USER_GOAL_ACTIVE] = false
+        }
+    }
+
+    /**
+     * Reset the user's goal (for creating a new one)
+     */
+    suspend fun resetUserGoal() {
+        dataStore.edit { preferences ->
+            preferences.remove(USER_GOAL_TITLE)
+            preferences.remove(USER_GOAL_DESCRIPTION)
+            preferences.remove(USER_GOAL_CATEGORY)
+            preferences.remove(USER_GOAL_TARGET_DATE)
+            preferences.remove(USER_GOAL_COMPLETED)
+            preferences.remove(USER_GOAL_ACTIVE)
+            // Don't reset the HAS_SET_INITIAL_GOAL flag
+        }
+    }
 }
 
 data class ProgressData(
@@ -193,3 +276,13 @@ enum class ThemeMode(val value: Int) {
     DARK(1),
     SYSTEM(2)
 }
+
+data class UserGoalData(
+    val title: String,
+    val description: String,
+    val category: String,
+    val targetDate: Date? = null,
+    val createdDate: Date = Date(),
+    val isCompleted: Boolean = false,
+    val isActive: Boolean = true
+)

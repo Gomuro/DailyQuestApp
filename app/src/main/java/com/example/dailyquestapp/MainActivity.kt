@@ -85,6 +85,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import com.example.dailyquestapp.navigation.MainNavigation
 import com.example.dailyquestapp.presentation.profile.UserViewModel
 import com.example.dailyquestapp.navigation.Screen
+import com.example.dailyquestapp.presentation.goal.GoalViewModel
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -110,9 +111,13 @@ class MainActivity : ComponentActivity() {
                 DailyQuestAppTheme {
                     val questViewModel: QuestViewModel by viewModel<QuestViewModel>()
                     val userViewModel: UserViewModel by viewModel<UserViewModel>()
+                    val goalViewModel: GoalViewModel by viewModel<GoalViewModel>()
                     
                     // Create a state to track authentication status
                     var authState by remember { mutableStateOf(AuthState.CHECKING) }
+                    
+                    // Get goal status - using collectAsStateWithLifecycle with an initial value
+                    val hasSetGoal by goalViewModel.hasSetInitialGoal.collectAsStateWithLifecycle(initialValue = false)
                     
                     // Initialize user auth state and determine what screen to show
                     LaunchedEffect(Unit) {
@@ -128,14 +133,21 @@ class MainActivity : ComponentActivity() {
                             SplashScreen()
                         }
                         AuthState.AUTHENTICATED -> {
-                            // User is authenticated, show main app content
+                            // User is authenticated, check if they need to set up a goal
+                            val startScreen = if (!hasSetGoal) {
+                                Screen.GOAL_SETUP
+                            } else {
+                                Screen.HOME
+                            }
+                            
+                            // Show main app content
                             MainNavigation(
                                 questViewModel = questViewModel,
                                 userViewModel = userViewModel,
                                 onDailyQuestScreen = {
                                     DailyQuestScreen(questViewModel)
                                 },
-                                startScreen = Screen.HOME // Explicitly start at home screen
+                                startScreen = startScreen
                             )
                         }
                         AuthState.UNAUTHENTICATED -> {
@@ -146,7 +158,7 @@ class MainActivity : ComponentActivity() {
                                 onDailyQuestScreen = {
                                     DailyQuestScreen(questViewModel)
                                 },
-                                startScreen = Screen.LOGIN // Explicitly start at login screen
+                                startScreen = Screen.LOGIN
                             )
                         }
                     }

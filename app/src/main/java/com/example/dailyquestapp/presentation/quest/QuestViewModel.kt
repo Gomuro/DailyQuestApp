@@ -8,6 +8,7 @@ import com.example.dailyquestapp.ai.processor.QuestResult
 import com.example.dailyquestapp.data.repository.ProgressRepository
 import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.data.local.ProgressData
+import com.example.dailyquestapp.data.local.UserGoalData
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
@@ -43,6 +44,9 @@ class QuestViewModel constructor(
     // Loading state for AI quest generation
     private val _isGeneratingQuest = MutableStateFlow(false)
     val isGeneratingQuest: StateFlow<Boolean> = _isGeneratingQuest.asStateFlow()
+    
+    // Current user goal
+    private val _userGoal = MutableStateFlow<UserGoalData?>(null)
 
     // Fallback quests in case AI generation fails
     private val fallbackQuests = listOf(
@@ -87,6 +91,13 @@ class QuestViewModel constructor(
         viewModelScope.launch {
             dataStoreManager.rejectInfoFlow.collect { info ->
                 _rejectInfo.value = info
+            }
+        }
+        
+        // Load user goal data
+        viewModelScope.launch {
+            dataStoreManager.userGoalFlow.collect { goalData ->
+                _userGoal.value = goalData
             }
         }
     }
@@ -165,12 +176,25 @@ class QuestViewModel constructor(
         val progressData = _progress.value
         val streak = progressData.streak
         val points = progressData.points
+        val goal = _userGoal.value
         
-        // Create a prompt based on user's progress
-        return when {
+        // Create a prompt based on user's progress and goal
+        val basePrompt = when {
             streak > 10 -> "Generate a challenging daily quest for an advanced user with a ${streak}-day streak and ${points} points."
             streak > 5 -> "Generate a moderately difficult daily quest for an intermediate user with a ${streak}-day streak."
             else -> "Generate a simple and achievable daily quest for a beginner user."
+        }
+        
+        // Add goal-specific information if available
+        return if (goal != null) {
+            val goalContext = "User's main goal is: \"${goal.title}\". " +
+                    if (goal.description.isNotBlank()) "Goal description: \"${goal.description}\". " else "" +
+                    "Goal category: ${goal.category}. " +
+                    "Generate a quest that will help the user make progress toward this goal."
+            
+            "$basePrompt $goalContext"
+        } else {
+            basePrompt
         }
     }
 }

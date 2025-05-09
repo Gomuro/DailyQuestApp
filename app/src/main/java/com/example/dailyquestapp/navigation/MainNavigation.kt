@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,17 +29,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.unit.dp
+import com.example.dailyquestapp.presentation.goal.GoalDisplayScreen
+import com.example.dailyquestapp.presentation.goal.GoalSetupScreen
+import com.example.dailyquestapp.presentation.goal.GoalViewModel
 import com.example.dailyquestapp.presentation.profile.LoginScreen
 import com.example.dailyquestapp.presentation.profile.ProfileScreen
 import com.example.dailyquestapp.presentation.profile.RegisterScreen
 import com.example.dailyquestapp.presentation.profile.UserViewModel
 import com.example.dailyquestapp.presentation.quest.QuestViewModel
+import org.koin.androidx.compose.koinViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 enum class Screen {
     HOME,
     PROFILE,
     LOGIN,
-    REGISTER
+    REGISTER,
+    GOAL_SETUP,
+    GOAL_DISPLAY
 }
 
 @Composable
@@ -53,6 +61,10 @@ fun MainNavigation(
     val username by userViewModel.username.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
     val errorMessage by userViewModel.errorMessage.collectAsState()
+    
+    // Get GoalViewModel
+    val goalViewModel: GoalViewModel = koinViewModel()
+    val hasSetInitialGoal by goalViewModel.hasSetInitialGoal.collectAsStateWithLifecycle(initialValue = false)
     
     // Track if initial authentication check is complete
     var isInitializing by remember { mutableStateOf(true) }
@@ -82,8 +94,17 @@ fun MainNavigation(
         return
     }
     
-    // Use the provided startScreen parameter instead of determining it here
-    var currentScreen by remember { mutableStateOf(startScreen) }
+    // Use the provided startScreen parameter or determine based on goal state
+    var currentScreen by remember { 
+        // If user is logged in but hasn't set a goal, go to goal setup
+        mutableStateOf(
+            if (isUserLoggedIn && !hasSetInitialGoal) {
+                Screen.GOAL_SETUP
+            } else {
+                startScreen
+            }
+        )
+    }
     
     // If user is not logged in, show login screen
     if (!isUserLoggedIn) {
@@ -93,7 +114,12 @@ fun MainNavigation(
                     onLoginClick = { email, password, rememberMe ->
                         userViewModel.login(context, email, password, rememberMe) { success ->
                             if (success) {
-                                currentScreen = Screen.HOME
+                                // Check if user needs to set up their goal after login
+                                if (!hasSetInitialGoal) {
+                                    currentScreen = Screen.GOAL_SETUP
+                                } else {
+                                    currentScreen = Screen.HOME
+                                }
                             }
                         }
                     },
@@ -109,7 +135,8 @@ fun MainNavigation(
                     onRegisterClick = { username, email, password ->
                         userViewModel.register(context, username, email, password) { success ->
                             if (success) {
-                                currentScreen = Screen.HOME
+                                // New users always go to goal setup
+                                currentScreen = Screen.GOAL_SETUP
                             }
                         }
                     },
@@ -128,6 +155,17 @@ fun MainNavigation(
         return
     }
     
+    // Handle goal setup screen outside of main navigation
+    if (currentScreen == Screen.GOAL_SETUP) {
+        GoalSetupScreen(
+            viewModel = goalViewModel,
+            onGoalSet = {
+                currentScreen = Screen.HOME
+            }
+        )
+        return
+    }
+    
     // User is logged in, show main app content
     Scaffold(
         bottomBar = {
@@ -137,6 +175,13 @@ fun MainNavigation(
                     label = { Text("Home") },
                     selected = currentScreen == Screen.HOME,
                     onClick = { currentScreen = Screen.HOME }
+                )
+                
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Flag, contentDescription = "My Goal") },
+                    label = { Text("My Goal") },
+                    selected = currentScreen == Screen.GOAL_DISPLAY,
+                    onClick = { currentScreen = Screen.GOAL_DISPLAY }
                 )
                 
                 NavigationBarItem(
@@ -152,6 +197,12 @@ fun MainNavigation(
             when (currentScreen) {
                 Screen.HOME -> {
                     onDailyQuestScreen()
+                }
+                Screen.GOAL_DISPLAY -> {
+                    GoalDisplayScreen(
+                        viewModel = goalViewModel,
+                        onEditGoal = { currentScreen = Screen.GOAL_SETUP }
+                    )
                 }
                 Screen.PROFILE -> {
                     ProfileScreen(

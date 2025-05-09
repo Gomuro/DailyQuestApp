@@ -48,6 +48,11 @@
             android:exported="false"
             android:label="Network Diagnostics"
             android:theme="@style/Theme.DailyQuestApp" />
+        <activity
+            android:name=".GoalActivity"
+            android:exported="false"
+            android:label="My Goal"
+            android:theme="@style/Theme.DailyQuestApp" />
     </application>
 
 </manifest>
