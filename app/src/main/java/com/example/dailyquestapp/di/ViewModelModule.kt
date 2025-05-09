@@ -9,6 +9,7 @@ import org.koin.dsl.module
 
 val viewModelModule = module {
     // Register QuestViewModel with its dependencies
+    // AIProcessor is injected directly in the ViewModel using by inject()
     viewModel { QuestViewModel(get(), get()) }
     
     // Register HistoryViewModel

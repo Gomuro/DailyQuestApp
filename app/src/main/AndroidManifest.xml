@@ -17,6 +17,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DailyQuestApp"
         tools:targetApi="31">
+        
+        <!-- API Key metadata - replace with your actual key in the local build -->
+        <meta-data
+            android:name="openai_api_key"
+            android:value="${openaiApiKey}" />
+            
         <activity
             android:name=".MainActivity"
             android:exported="true"

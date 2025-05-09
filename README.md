@@ -49,7 +49,13 @@ git clone https://github.com/Gomuro/DailyQuestApp.git
 
 3. Sync project with Gradle files
 
-4. Run the app on your device or emulator
+4. Set up your OpenAI API key:
+
+   - Copy `gradle.properties.template` to `gradle.properties`
+   - Replace `"your_api_key_here"` with your actual OpenAI API key
+   - Note: `gradle.properties` is ignored by git to keep your API key secure
+
+5. Run the app on your device or emulator
 
 ## 🏗️ Architecture
 

@@ -188,13 +188,14 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         val view = LocalView.current
         val currentSeed by viewModel.currentSeed.collectAsState()
-        val currentQuest by remember(currentSeed) { derivedStateOf { viewModel.getCurrentQuest() } }
+        val currentQuest by remember { derivedStateOf { viewModel.getCurrentQuest() } }
         var showReward by remember { mutableStateOf(false) }
         val timeToNextQuest = remember { derivedStateOf { calculateTimeToNextQuest() } }
         val progressState by viewModel.progress.collectAsState()
         var totalPoints by remember { mutableStateOf(progressState.points) }
         var currentStreak by remember { mutableStateOf(progressState.streak) }
         var showStreakAnimation by remember { mutableStateOf(false) }
+        val isGeneratingQuest by viewModel.isGeneratingQuest.collectAsState()
         val streakScale by animateFloatAsState(
             targetValue = if (showStreakAnimation) 1.5f else 1f,
             animationSpec = spring(
@@ -316,32 +317,51 @@ class MainActivity : ComponentActivity() {
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("🎯Your task is:", style = MaterialTheme.typography.titleMedium)
-                            
-                            Spacer(Modifier.height(24.dp))
-                            
-                            Text(
-                                text = currentQuest.first.trim(),
-                                style = MaterialTheme.typography.displayMedium,
-                                textAlign = TextAlign.Center
-                            )
-                            
-                            Spacer(Modifier.height(16.dp))
-                            
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
+                        if (isGeneratingQuest) {
+                            // Show loading indicator while generating quest
+                            Column(
+                                modifier = Modifier
+                                    .padding(24.dp)
+                                    .fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("🏆 Reward:", style = MaterialTheme.typography.titleMedium)
-                                Spacer(Modifier.width(8.dp))
+                                CircularProgressIndicator()
+                                Spacer(Modifier.height(16.dp))
                                 Text(
-                                    text = rewards[currentQuest.second % rewards.size],
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.headlineSmall
+                                    text = "Generating your quest...",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center
                                 )
+                            }
+                        } else {
+                            // Show quest content
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("🎯Your task is:", style = MaterialTheme.typography.titleMedium)
+                                
+                                Spacer(Modifier.height(24.dp))
+                                
+                                Text(
+                                    text = currentQuest.first.trim(),
+                                    style = MaterialTheme.typography.displayMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Spacer(Modifier.height(16.dp))
+                                
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🏆 Reward:", style = MaterialTheme.typography.titleMedium)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = "${currentQuest.second} points",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.headlineSmall
+                                    )
+                                }
                             }
                         }
                     }
@@ -374,7 +394,7 @@ class MainActivity : ComponentActivity() {
                                 text = if (wasRejected) 
                                     "Quest rejected" 
                                 else 
-                                    "+${rewards[(rewardedQuest?.second ?: 0) % rewards.size]}",
+                                    "+${currentQuest.second} points",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = if (wasRejected) 
                                     MaterialTheme.colorScheme.error 
@@ -432,9 +452,8 @@ class MainActivity : ComponentActivity() {
                                     val isNewDay = lastClaimedDay != today
                                     val newStreak = if (isNewDay && lastClaimedDay == today - 1) currentStreak + 1 else 1
 
-                                    // Use currentQuest instead of rewardedQuest
-                                    val points = rewards[currentQuest.second % rewards.size]
-                                        .removeSuffix(" points").toInt()
+                                    // Use AI-generated points directly
+                                    val points = currentQuest.second
                                     val newTotalPoints = progressState.points + points
 
                                     // Save progress to ViewModel (which will persist and sync)
@@ -491,6 +510,7 @@ class MainActivity : ComponentActivity() {
                 delay(2000)
                 showReward = false
                 viewModel.loadSeed(System.currentTimeMillis())
+                viewModel.generateAIQuest() // Generate a new AI quest
                 wasRejected = false
             }
         }

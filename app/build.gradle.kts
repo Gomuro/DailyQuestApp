@@ -16,6 +16,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Add BuildConfig field for OpenAI API key
+        buildConfigField("String", "OPENAI_API_KEY", "${project.findProperty("OPENAI_API_KEY") ?: "\"\"" }")
+        
+        // Add manifest placeholder for API key
+        manifestPlaceholders["openaiApiKey"] = project.findProperty("OPENAI_API_KEY")?.toString()?.replace("\"", "") ?: ""
     }
 
     buildTypes {
@@ -36,6 +42,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     
     // Configure test options

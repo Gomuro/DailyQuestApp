@@ -6,6 +6,7 @@ import com.example.dailyquestapp.data.remote.ApiService
 import com.example.dailyquestapp.data.repository.ProgressRepository
 import com.example.dailyquestapp.data.repository.TokenManager
 import com.example.dailyquestapp.di.NetworkModule
+import com.example.dailyquestapp.di.aiModule
 import com.example.dailyquestapp.di.repositoryModule
 import com.example.dailyquestapp.di.viewModelModule
 import org.koin.android.ext.koin.androidContext
@@ -21,7 +22,7 @@ class DailyQuestApplication : Application() {
         startKoin {
             androidLogger()
             androidContext(this@DailyQuestApplication)
-            modules(appModule, repositoryModule, viewModelModule)
+            modules(appModule, repositoryModule, viewModelModule, aiModule)
         }
     }
     
