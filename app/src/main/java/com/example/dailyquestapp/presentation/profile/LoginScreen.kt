@@ -4,14 +4,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import android.content.Intent
 import android.util.Patterns
+import com.example.dailyquestapp.DiagnosticActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,6 +35,7 @@ fun LoginScreen(
     var rememberMe by remember { mutableStateOf(false) }
     
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     
     // Function to validate email format
     fun isValidEmail(email: String): Boolean {
@@ -181,6 +186,27 @@ fun LoginScreen(
                         text = "Don't have an account? Register",
                         textAlign = TextAlign.Center
                     )
+                }
+                
+                // Add diagnostic button at the bottom
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                OutlinedButton(
+                    onClick = {
+                        context.startActivity(Intent(context, DiagnosticActivity::class.java))
+                    },
+                    modifier = Modifier.padding(top = 8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.tertiary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BugReport,
+                        contentDescription = "Network Diagnostics",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Network Diagnostics")
                 }
             }
             

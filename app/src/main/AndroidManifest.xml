@@ -43,6 +43,11 @@
             android:exported="false"
             android:label="Settings"
             android:theme="@style/Theme.DailyQuestApp" />
+        <activity
+            android:name=".DiagnosticActivity"
+            android:exported="false"
+            android:label="Network Diagnostics"
+            android:theme="@style/Theme.DailyQuestApp" />
     </application>
 
 </manifest>
