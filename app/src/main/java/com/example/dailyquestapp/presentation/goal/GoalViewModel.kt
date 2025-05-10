@@ -65,7 +65,9 @@ class GoalViewModel : ViewModel(), KoinComponent {
             // Load the current goal with server synchronization
             goalRepository.getActiveGoal().collect { goalData ->
                 _currentGoal.value = goalData
+                
                 // If we have a goal, ensure hasSetInitialGoal is true
+                // This ensures consistency between goal existence and flag
                 if (goalData != null) {
                     ensureHasSetInitialGoal()
                 }

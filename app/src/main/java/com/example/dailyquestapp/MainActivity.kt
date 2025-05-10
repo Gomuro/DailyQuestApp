@@ -110,6 +110,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.TextButton
 
+// Static object to hold app-wide session flags
+object AppSessionFlags {
+    var hasCheckedGoalThisSession = false
+}
+
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
     lateinit var rewardButton: Button
@@ -148,13 +153,28 @@ class MainActivity : ComponentActivity() {
                     when (authState) {
                         AuthState.CHECKING -> SplashScreen()
                         AuthState.AUTHENTICATED -> {
-                            val startScreen = if (!hasSetGoal) Screen.GOAL_SETUP else Screen.HOME
-                            MainNavigation(
-                                questViewModel = questViewModel,
-                                userViewModel = userViewModel,
-                                onDailyQuestScreen = { DailyQuestScreen(questViewModel) },
-                                startScreen = startScreen
-                            )
+                            // Set a static flag to track this app session
+                            if (!AppSessionFlags.hasCheckedGoalThisSession) {
+                                AppSessionFlags.hasCheckedGoalThisSession = true
+                                
+                                // Only show goal setup on first launch when there's no goal
+                                val startScreen = if (!hasSetGoal) Screen.GOAL_SETUP else Screen.HOME
+                                
+                                MainNavigation(
+                                    questViewModel = questViewModel,
+                                    userViewModel = userViewModel,
+                                    onDailyQuestScreen = { DailyQuestScreen(questViewModel) },
+                                    startScreen = startScreen
+                                )
+                            } else {
+                                // On subsequent navigation, always go to HOME
+                                MainNavigation(
+                                    questViewModel = questViewModel,
+                                    userViewModel = userViewModel,
+                                    onDailyQuestScreen = { DailyQuestScreen(questViewModel) },
+                                    startScreen = Screen.HOME
+                                )
+                            }
                         }
                         AuthState.UNAUTHENTICATED -> {
                             MainNavigation(

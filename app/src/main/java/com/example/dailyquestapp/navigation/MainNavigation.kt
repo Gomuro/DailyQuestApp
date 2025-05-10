@@ -94,17 +94,9 @@ fun MainNavigation(
         return
     }
     
-    // Use the provided startScreen parameter or determine based on goal state
-    var currentScreen by remember { 
-        // If user is logged in but hasn't set a goal, go to goal setup
-        mutableStateOf(
-            if (isUserLoggedIn && !hasSetInitialGoal) {
-                Screen.GOAL_SETUP
-            } else {
-                startScreen
-            }
-        )
-    }
+    // Use exactly what was provided as the startScreen parameter
+    // This now respects what MainActivity decided
+    var currentScreen by remember { mutableStateOf(startScreen) }
     
     // If user is not logged in, show login screen
     if (!isUserLoggedIn) {
@@ -114,12 +106,9 @@ fun MainNavigation(
                     onLoginClick = { email, password, rememberMe ->
                         userViewModel.login(context, email, password, rememberMe) { success ->
                             if (success) {
-                                // Check if user needs to set up their goal after login
-                                if (!hasSetInitialGoal) {
-                                    currentScreen = Screen.GOAL_SETUP
-                                } else {
-                                    currentScreen = Screen.HOME
-                                }
+                                // Always go to home screen after login, the home screen can 
+                                // redirect to goal setup if needed
+                                currentScreen = Screen.HOME
                             }
                         }
                     },

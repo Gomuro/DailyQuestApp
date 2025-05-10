@@ -1,5 +1,6 @@
 package com.example.dailyquestapp
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,6 +34,7 @@ class GoalActivity : ComponentActivity() {
         val dataStoreManager = DataStoreManager(applicationContext)
         
         // Check if we are editing an existing goal or creating a new one
+        // This is now the single source of truth for edit mode
         val isEditMode = intent.getBooleanExtra("EDIT_MODE", false)
         
         setContent {
@@ -44,11 +46,15 @@ class GoalActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        var isEditing by remember { mutableStateOf(isEditMode) }
                         val currentGoal by goalViewModel.currentGoal.collectAsState()
                         
-                        if (isEditing || currentGoal == null) {
-                            // Show setup screen for new goal or when editing
+                        // Force one-time check when the screen is first displayed
+                        val isNewGoal = currentGoal == null
+                        
+                        // Only show edit screen in exactly two cases:
+                        // 1. We were explicitly told to edit (EDIT_MODE=true from intent)
+                        // 2. There is no goal at all (first-time setup)
+                        if (isEditMode || isNewGoal) {
                             GoalSetupScreen(
                                 viewModel = goalViewModel,
                                 onGoalSet = {
@@ -57,12 +63,17 @@ class GoalActivity : ComponentActivity() {
                                 }
                             )
                         } else {
-                            // Show display screen when viewing an existing goal
+                            // In all other cases, show display screen
                             GoalDisplayScreen(
                                 viewModel = goalViewModel,
                                 onEditGoal = {
-                                    // Switch to edit mode
-                                    isEditing = true
+                                    // Start a completely new activity with edit mode
+                                    // instead of changing state within this one
+                                    val intent = Intent(this@GoalActivity, GoalActivity::class.java).apply {
+                                        putExtra("EDIT_MODE", true)
+                                    }
+                                    this@GoalActivity.startActivity(intent)
+                                    finish() // Close current instance to avoid stacking
                                 }
                             )
                         }
