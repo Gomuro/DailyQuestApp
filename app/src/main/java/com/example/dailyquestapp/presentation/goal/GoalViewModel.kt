@@ -1,14 +1,17 @@
 package com.example.dailyquestapp.presentation.goal
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.data.local.UserGoalData
+import com.example.dailyquestapp.data.repository.GoalRepository
 import com.example.dailyquestapp.domain.model.GoalCategory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
+import androidx.compose.runtime.State
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -18,6 +21,7 @@ import java.util.*
 class GoalViewModel : ViewModel(), KoinComponent {
     
     private val dataStoreManager: DataStoreManager by inject()
+    private val goalRepository: GoalRepository by inject()
     
     private val _currentGoal = MutableStateFlow<UserGoalData?>(null)
     val currentGoal: StateFlow<UserGoalData?> = _currentGoal.asStateFlow()
@@ -31,7 +35,25 @@ class GoalViewModel : ViewModel(), KoinComponent {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
     
+    // New success state for goal setting
+    private val _goalSetSuccess = MutableStateFlow(false)
+    val goalSetSuccess: StateFlow<Boolean> = _goalSetSuccess.asStateFlow()
+    
+    private var hasFetchedInitialGoal = false
+    private val _isRefreshing = mutableStateOf(false)
+    val isRefreshing: State<Boolean> = _isRefreshing
+    
     init {
+        viewModelScope.launch {
+            // Only check server once on initialization
+            if (!hasFetchedInitialGoal) {
+                _isRefreshing.value = true
+                goalRepository.refreshActiveGoal()
+                hasFetchedInitialGoal = true
+                _isRefreshing.value = false
+            }
+        }
+        
         viewModelScope.launch {
             // Load whether the user has set an initial goal
             dataStoreManager.hasSetInitialGoal.collect { hasSet ->
@@ -40,10 +62,23 @@ class GoalViewModel : ViewModel(), KoinComponent {
         }
         
         viewModelScope.launch {
-            // Load the current goal
-            dataStoreManager.userGoalFlow.collect { goalData ->
+            // Load the current goal with server synchronization
+            goalRepository.getActiveGoal().collect { goalData ->
                 _currentGoal.value = goalData
+                // If we have a goal, ensure hasSetInitialGoal is true
+                if (goalData != null) {
+                    ensureHasSetInitialGoal()
+                }
             }
+        }
+    }
+    
+    /**
+     * Ensures the hasSetInitialGoal flag is set to true if we have a goal
+     */
+    private suspend fun ensureHasSetInitialGoal() {
+        if (!_hasSetInitialGoal.value) {
+            dataStoreManager.setInitialGoalFlag(true)
         }
     }
     
@@ -55,19 +90,33 @@ class GoalViewModel : ViewModel(), KoinComponent {
     ) {
         viewModelScope.launch {
             _isLoading.value = true
+            _goalSetSuccess.value = false
+            
             try {
                 // Parse target date if provided
                 val targetDate = targetDateString?.let { parseDate(it) }
                 
-                // Save goal to DataStore
-                dataStoreManager.saveUserGoal(
+                // Create goal object
+                val goalData = UserGoalData(
                     title = title,
                     description = description,
                     category = category.name,
-                    targetDate = targetDate
+                    targetDate = targetDate,
+                    remoteId = _currentGoal.value?.remoteId
                 )
                 
-                _errorMessage.value = null
+                // Save goal to repository (which handles local and remote storage)
+                goalRepository.saveGoal(goalData).fold(
+                    onSuccess = { 
+                        // Ensure initial goal flag is set
+                        ensureHasSetInitialGoal()
+                        _goalSetSuccess.value = true
+                    },
+                    onFailure = { e ->
+                        _errorMessage.value = "Failed to save goal: ${e.message}"
+                    }
+                )
+                
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to save goal: ${e.message}"
             } finally {
@@ -80,8 +129,13 @@ class GoalViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                dataStoreManager.completeUserGoal()
-                _errorMessage.value = null
+                // Complete goal in repository (handles local and remote)
+                goalRepository.completeGoal(_currentGoal.value?.remoteId).fold(
+                    onSuccess = { /* Success - already updated in flow */ },
+                    onFailure = { e ->
+                        _errorMessage.value = "Failed to complete goal: ${e.message}"
+                    }
+                )
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to complete goal: ${e.message}"
             } finally {
@@ -94,14 +148,26 @@ class GoalViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                dataStoreManager.resetUserGoal()
-                _errorMessage.value = null
+                // Reset goal in repository (handles local and remote)
+                goalRepository.resetGoal(_currentGoal.value?.remoteId).fold(
+                    onSuccess = { /* Success - already updated in flow */ },
+                    onFailure = { e ->
+                        _errorMessage.value = "Failed to reset goal: ${e.message}"
+                    }
+                )
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to reset goal: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
+    }
+    
+    /**
+     * Resets the goal success state after navigation
+     */
+    fun resetGoalSetSuccessState() {
+        _goalSetSuccess.value = false
     }
     
     fun clearError() {
@@ -120,5 +186,16 @@ class GoalViewModel : ViewModel(), KoinComponent {
     fun formatDate(date: Date): String {
         val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         return formatter.format(date)
+    }
+    
+    fun refreshGoals() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                goalRepository.refreshActiveGoal()
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
     }
 } 

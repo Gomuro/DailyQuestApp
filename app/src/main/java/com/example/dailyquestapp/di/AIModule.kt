@@ -17,7 +17,7 @@ val aiModule = module {
     single { 
         OpenAI(
             token = AppConfig.getOpenAIApiKey(androidContext()),
-            timeout = Timeout(socket = 60.seconds)
+            timeout = Timeout(socket = AppConfig.SOCKET_TIMEOUT_SECONDS.seconds)
         )
     }
     

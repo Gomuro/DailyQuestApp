@@ -211,6 +211,15 @@ class DataStoreManager(context: Context) {
         }
 
     /**
+     * Set the initial goal flag directly
+     */
+    suspend fun setInitialGoalFlag(hasSet: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[HAS_SET_INITIAL_GOAL] = hasSet
+        }
+    }
+
+    /**
      * Get the user's current goal
      */
     val userGoalFlow: Flow<UserGoalData?> = dataStore.data
@@ -225,7 +234,9 @@ class DataStoreManager(context: Context) {
                 targetDate = preferences[USER_GOAL_TARGET_DATE]?.let { Date(it) },
                 createdDate = Date(preferences[USER_GOAL_CREATED_DATE] ?: Date().time),
                 isCompleted = preferences[USER_GOAL_COMPLETED] ?: false,
-                isActive = preferences[USER_GOAL_ACTIVE] ?: true
+                isActive = preferences[USER_GOAL_ACTIVE] ?: true,
+                remoteId = null,
+                progress = 0
             )
         }
 
@@ -266,7 +277,14 @@ data class TaskProgress(
     val points: Int,
     val status: TaskStatus,
     val date: String,
-    val time: String
+    val time: String,
+    val goalInfo: TaskProgressGoalInfo? = null
+)
+
+data class TaskProgressGoalInfo(
+    val id: String,
+    val title: String,
+    val category: String
 )
 
 enum class TaskStatus { COMPLETED, REJECTED }
@@ -284,5 +302,7 @@ data class UserGoalData(
     val targetDate: Date? = null,
     val createdDate: Date = Date(),
     val isCompleted: Boolean = false,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val remoteId: String? = null,
+    val progress: Int = 0
 )

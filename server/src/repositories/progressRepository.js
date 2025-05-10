@@ -43,23 +43,29 @@ class ProgressRepository {
    * Save a task history entry
    * @param {string} userId - User ID
    * @param {Object} taskData - Task data including quest, points, status
-   * @returns {Promise<Object|null>} Updated progress object or null if not found
+   * @returns {Promise<Object>} The saved task with ID
    */
   async saveTaskHistory(userId, taskData) {
-    return await Progress.findOneAndUpdate(
+    // Create the new task object
+    const newTask = {
+      quest: taskData.quest,
+      points: taskData.points,
+      status: taskData.status,
+      timestamp: new Date(),
+    };
+
+    // Update the progress document and get the updated version
+    const updatedProgress = await Progress.findOneAndUpdate(
       { user: userId },
-      {
-        $push: {
-          taskHistory: {
-            quest: taskData.quest,
-            points: taskData.points,
-            status: taskData.status,
-            timestamp: new Date(),
-          },
-        },
-      },
+      { $push: { taskHistory: newTask } },
       { new: true, upsert: true }
     );
+
+    // Get the newly added task (it's the last one in the array)
+    const savedTask =
+      updatedProgress.taskHistory[updatedProgress.taskHistory.length - 1];
+
+    return savedTask;
   }
 
   /**

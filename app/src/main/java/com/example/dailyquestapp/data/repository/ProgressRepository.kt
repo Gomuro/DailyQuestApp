@@ -21,6 +21,16 @@ interface ProgressRepository {
     
     // Task history
     suspend fun saveTaskHistory(quest: String, points: Int, status: TaskStatus)
+    
+    // Enhanced task history with goal information
+    suspend fun saveTaskHistory(
+        quest: String, 
+        points: Int, 
+        status: TaskStatus, 
+        goalId: String? = null,
+        goalProgress: Int = 0
+    )
+    
     suspend fun getTaskHistory(): List<TaskProgress>
     suspend fun clearTaskHistory()
     
@@ -66,15 +76,39 @@ class ProgressRepositoryImpl constructor(
         emit(Pair(seedInfo.currentSeed, seedInfo.seedDay))
     }
     
-    // Task history
+    // Task history - basic version for backward compatibility
     override suspend fun saveTaskHistory(quest: String, points: Int, status: TaskStatus) {
-        apiService.saveTaskHistory(
+        saveTaskHistory(quest, points, status, null, 0)
+    }
+    
+    // Task history - enhanced version with goal support
+    override suspend fun saveTaskHistory(
+        quest: String, 
+        points: Int, 
+        status: TaskStatus, 
+        goalId: String?,
+        goalProgress: Int
+    ) {
+        // Create a TaskHistoryRequest with goal information
+        val request = if (goalId != null && goalProgress > 0) {
+            // Include goal information for completed tasks
+            TaskHistoryRequest(
+                quest = quest,
+                points = points,
+                status = status.name,
+                goalId = goalId,
+                goalProgress = goalProgress
+            )
+        } else {
+            // Basic request without goal info
             TaskHistoryRequest(
                 quest = quest,
                 points = points,
                 status = status.name
             )
-        )
+        }
+        
+        apiService.saveTaskHistory(request)
     }
     
     override suspend fun getTaskHistory(): List<TaskProgress> {

@@ -38,4 +38,26 @@ interface ApiService {
 
     @GET("progress/theme")
     suspend fun getThemePreference(): ThemePreferenceResponse
+    
+    // Goal endpoints
+    @GET("goals/active")
+    suspend fun getActiveGoal(): GoalDto
+    
+    @GET("goals")
+    suspend fun getAllGoals(@Query("status") status: String? = null): List<GoalDto>
+    
+    @GET("goals/{id}")
+    suspend fun getGoalById(@Path("id") goalId: String): GoalDto
+    
+    @POST("goals")
+    suspend fun createGoal(@Body request: GoalRequest): GoalDto
+    
+    @PUT("goals/{id}")
+    suspend fun updateGoal(@Path("id") goalId: String, @Body request: GoalRequest): GoalDto
+    
+    @DELETE("goals/{id}")
+    suspend fun deleteGoal(@Path("id") goalId: String): BaseResponse
+    
+    @PATCH("goals/{id}/progress")
+    suspend fun updateGoalProgress(@Path("id") goalId: String, @Body request: GoalProgressRequest): GoalDto
 }

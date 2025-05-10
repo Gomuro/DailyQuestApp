@@ -82,10 +82,57 @@ const themeValidation = [
   handleValidationErrors,
 ];
 
+/**
+ * Validation rules for creating/updating goals
+ */
+const goalValidation = [
+  check("title")
+    .trim()
+    .notEmpty()
+    .withMessage("Title is required")
+    .isLength({ max: 100 })
+    .withMessage("Title cannot exceed 100 characters"),
+  check("description")
+    .trim()
+    .notEmpty()
+    .withMessage("Description is required")
+    .isLength({ max: 500 })
+    .withMessage("Description cannot exceed 500 characters"),
+  check("category")
+    .isIn(["HEALTH", "CAREER", "EDUCATION", "PERSONAL", "FINANCE", "OTHER"])
+    .withMessage("Invalid category"),
+  check("difficulty")
+    .isInt({ min: 1, max: 5 })
+    .withMessage("Difficulty must be between 1 and 5"),
+  check("deadline")
+    .optional()
+    .isISO8601()
+    .withMessage("Deadline must be a valid date"),
+  handleValidationErrors,
+];
+
+/**
+ * Validation rules for updating goal progress
+ */
+const goalProgressValidation = [
+  check("progressIncrement")
+    .isNumeric()
+    .withMessage("Progress increment must be a number")
+    .custom((value) => value >= 0)
+    .withMessage("Progress increment must be a positive number"),
+  check("questId")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid quest ID format"),
+  handleValidationErrors,
+];
+
 module.exports = {
   registerValidation,
   loginValidation,
   progressValidation,
   taskHistoryValidation,
   themeValidation,
+  goalValidation,
+  goalProgressValidation,
 };

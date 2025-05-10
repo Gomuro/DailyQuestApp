@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.FlowPreview
 
 /**
  * Implementation of ProgressRepository that follows an offline-first approach:
@@ -28,6 +29,7 @@ import kotlinx.coroutines.sync.withLock
  * 3. Falls back to local data when server is unavailable
  * 4. Queues changes for sync when connectivity is restored
  */
+@OptIn(FlowPreview::class)
 class OfflineFirstProgressRepository(
     private val context: Context,
     private val dataStoreManager: DataStoreManager,
@@ -169,23 +171,48 @@ class OfflineFirstProgressRepository(
     
     // Task history
     override suspend fun saveTaskHistory(quest: String, points: Int, status: TaskStatus) {
+        // Call the enhanced version with null goalId and 0 goalProgress
+        saveTaskHistory(quest, points, status, null, 0)
+    }
+    
+    // Enhanced task history with goal information
+    override suspend fun saveTaskHistory(
+        quest: String, 
+        points: Int, 
+        status: TaskStatus, 
+        goalId: String?,
+        goalProgress: Int
+    ) {
         // Save locally first
         dataStoreManager.saveTaskHistory(quest, points, status)
-        Log.d(TAG, "[saveTaskHistory] Saving to server: quest=$quest, points=$points, status=$status")
+        Log.d(TAG, "[saveTaskHistory] Saving to server: quest=$quest, points=$points, status=$status, goalId=$goalId, goalProgress=$goalProgress")
+        
         // Try to sync with server
         try {
-            val response = apiService.saveTaskHistory(
+            val request = if (goalId != null && goalProgress > 0) {
+                // Include goal information for completed tasks
+                TaskHistoryRequest(
+                    quest = quest,
+                    points = points,
+                    status = status.name,
+                    goalId = goalId,
+                    goalProgress = goalProgress
+                )
+            } else {
+                // Basic request without goal info
                 TaskHistoryRequest(
                     quest = quest,
                     points = points,
                     status = status.name
                 )
-            )
-            Log.d(TAG, "[saveTaskHistory] Server response: ${'$'}{response.message}")
+            }
+            
+            val response = apiService.saveTaskHistory(request)
+            Log.d(TAG, "[saveTaskHistory] Server response: ${response.message}")
         } catch (e: Exception) {
-            Log.e(TAG, "[saveTaskHistory] Error: ${'$'}{e.message}")
+            Log.e(TAG, "[saveTaskHistory] Error: ${e.message}")
             handleSyncError(e)
-            queueOperation { saveTaskHistory(quest, points, status) }
+            queueOperation { saveTaskHistory(quest, points, status, goalId, goalProgress) }
         }
     }
     

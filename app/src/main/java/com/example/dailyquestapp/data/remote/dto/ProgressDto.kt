@@ -22,19 +22,6 @@ data class SeedResponse(
     val seedDay: Int
 )
 
-data class TaskHistoryRequest(
-    val quest: String,
-    val points: Int,
-    val status: String  // "COMPLETED" or "REJECTED"
-)
-
-data class TaskHistoryDto(
-    val quest: String,
-    val points: Int,
-    val status: String,
-    val timestamp: String
-)
-
 data class RejectInfoRequest(
     val count: Int,
     val day: Int

@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.dailyquestapp.ui.theme.DailyQuestAppTheme
 import java.util.Calendar
@@ -51,16 +52,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.draw.rotate
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
@@ -80,12 +78,37 @@ import androidx.compose.material.icons.filled.Settings
 import com.example.dailyquestapp.components.MenuItem
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material3.LinearProgressIndicator
 import com.example.dailyquestapp.ui.theme.LocalThemeMode
 import androidx.compose.runtime.CompositionLocalProvider
 import com.example.dailyquestapp.navigation.MainNavigation
 import com.example.dailyquestapp.presentation.profile.UserViewModel
 import com.example.dailyquestapp.navigation.Screen
 import com.example.dailyquestapp.presentation.goal.GoalViewModel
+import androidx.compose.ui.draw.alpha
+import kotlinx.coroutines.delay
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateValue
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Divider
+import androidx.compose.material3.TextButton
 
 class MainActivity : ComponentActivity() {
     lateinit var questTextView: TextView
@@ -108,56 +131,36 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalThemeMode provides dataStoreManager.themePreferenceFlow
             ) {
-                DailyQuestAppTheme {
+            DailyQuestAppTheme {
                     val questViewModel: QuestViewModel by viewModel<QuestViewModel>()
                     val userViewModel: UserViewModel by viewModel<UserViewModel>()
                     val goalViewModel: GoalViewModel by viewModel<GoalViewModel>()
                     
-                    // Create a state to track authentication status
                     var authState by remember { mutableStateOf(AuthState.CHECKING) }
-                    
-                    // Get goal status - using collectAsStateWithLifecycle with an initial value
                     val hasSetGoal by goalViewModel.hasSetInitialGoal.collectAsStateWithLifecycle(initialValue = false)
                     
-                    // Initialize user auth state and determine what screen to show
                     LaunchedEffect(Unit) {
                         userViewModel.initialize(applicationContext) { isLoggedIn ->
                             authState = if (isLoggedIn) AuthState.AUTHENTICATED else AuthState.UNAUTHENTICATED
                         }
                     }
                     
-                    // Based on auth state, show appropriate screen
                     when (authState) {
-                        AuthState.CHECKING -> {
-                            // Show splash screen / loading indicator
-                            SplashScreen()
-                        }
+                        AuthState.CHECKING -> SplashScreen()
                         AuthState.AUTHENTICATED -> {
-                            // User is authenticated, check if they need to set up a goal
-                            val startScreen = if (!hasSetGoal) {
-                                Screen.GOAL_SETUP
-                            } else {
-                                Screen.HOME
-                            }
-                            
-                            // Show main app content
+                            val startScreen = if (!hasSetGoal) Screen.GOAL_SETUP else Screen.HOME
                             MainNavigation(
                                 questViewModel = questViewModel,
                                 userViewModel = userViewModel,
-                                onDailyQuestScreen = {
-                                    DailyQuestScreen(questViewModel)
-                                },
+                                onDailyQuestScreen = { DailyQuestScreen(questViewModel) },
                                 startScreen = startScreen
                             )
                         }
                         AuthState.UNAUTHENTICATED -> {
-                            // User is not authenticated, show login/register flow
                             MainNavigation(
                                 questViewModel = questViewModel,
                                 userViewModel = userViewModel,
-                                onDailyQuestScreen = {
-                                    DailyQuestScreen(questViewModel)
-                                },
+                                onDailyQuestScreen = { DailyQuestScreen(questViewModel) },
                                 startScreen = Screen.LOGIN
                             )
                         }
@@ -177,7 +180,6 @@ class MainActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // You can add an app logo or animation here
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Daily Quest App", style = MaterialTheme.typography.headlineMedium)
@@ -187,7 +189,6 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    // Auth states to manage app startup flow
     enum class AuthState {
         CHECKING,
         AUTHENTICATED,
@@ -199,8 +200,10 @@ class MainActivity : ComponentActivity() {
     fun DailyQuestScreen(viewModel: QuestViewModel) {
         val context = LocalContext.current
         val view = LocalView.current
-        val currentSeed by viewModel.currentSeed.collectAsState()
-        val currentQuest by remember { derivedStateOf { viewModel.getCurrentQuest() } }
+        val currentQuest by viewModel.displayedQuestFlow.collectAsState()
+        val currentQuestDetails by viewModel.currentQuestDetails.collectAsState()
+        val userGoal by viewModel.userGoal.collectAsState()
+        val needsGoalMessage by viewModel.needsGoalMessage.collectAsState()
         var showReward by remember { mutableStateOf(false) }
         val timeToNextQuest = remember { derivedStateOf { calculateTimeToNextQuest() } }
         val progressState by viewModel.progress.collectAsState()
@@ -217,7 +220,6 @@ class MainActivity : ComponentActivity() {
         )
         var lastClaimedDay by remember { mutableStateOf(progressState.lastDay) }
         var isQuestCompleted by remember { mutableStateOf(false) }
-        var rewardedQuest by remember { mutableStateOf<Pair<String, Int>?>(null) }
         val animatedProgress = remember { Animatable(0f) }
         val (rejectCount, lastRejectDay) = viewModel.rejectInfo.collectAsStateWithLifecycle().value
         var wasRejected by remember { mutableStateOf(false) }
@@ -246,42 +248,39 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(24.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Progress Header
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Daily Quest", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.width(16.dp))
-                    Text("💰 $totalPoints", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.width(16.dp))
+                    Text("Daily Quest", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(12.dp))
+                    Text("💰 $totalPoints", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(12.dp))
                     
-                    // Progress indicator
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(
                             progress = { timeToNextQuest.value.progress },
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = "Daily",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
 
-                // Streak display - moved outside the main header row
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column {
@@ -302,124 +301,460 @@ class MainActivity : ComponentActivity() {
                                             )
                                         )
                                     )
-                                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("🔥", style = MaterialTheme.typography.titleLarge)
-                                Spacer(Modifier.width(8.dp))
+                                Text("🔥", style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.width(4.dp))
                                 Text(
                                     text = "$currentStreak Day${if (currentStreak > 1) "s" else ""}",
                                     color = Color.White,
-                                    fontSize = 18.sp,
-                                    style = MaterialTheme.typography.labelLarge
+                                    fontSize = 16.sp,
+                                    style = MaterialTheme.typography.labelMedium
                                 )
                             }
                         }
                     }
                 }
 
-                // Spacer before Quest Card
-                Spacer(Modifier.height(32.dp)) // Adjusted height
+                Spacer(Modifier.height(16.dp))
 
-                // Main Quest Card
-                AnimatedVisibility(visible = !showReward) {
+                AnimatedVisibility(
+                    visible = !showReward,
+                    enter = fadeIn(animationSpec = tween(600)),
+                    exit = fadeOut(animationSpec = tween(400))
+                ) {
                     Card(
-                        modifier = Modifier.fillMaxWidth(0.9f),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp), // Added elevation
+                        modifier = Modifier
+                            .fillMaxWidth(0.95f)
+                            .heightIn(min = 280.dp)
+                            .widthIn(max = 600.dp)
+                            .padding(horizontal = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     ) {
-                        if (isGeneratingQuest) {
-                            // Show loading indicator while generating quest
-                            Column(
+                        if (isGeneratingQuest && currentQuest.first.startsWith("Loading")) {
+                        Column(
                                 modifier = Modifier
-                                    .padding(24.dp)
+                                    .padding(16.dp)
                                     .fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                CircularProgressIndicator()
-                                Spacer(Modifier.height(16.dp))
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                                val infiniteTransition = rememberInfiniteTransition(label = "loadingPulse")
+                                val scale by infiniteTransition.animateValue(
+                                    initialValue = 0.8f,
+                                    targetValue = 1.2f,
+                                    typeConverter = Float.VectorConverter,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(1000, easing = FastOutSlowInEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                    ),
+                                    label = "pulseAnimation"
+                                )
+                                
+                                val alpha by infiniteTransition.animateValue(
+                                    initialValue = 0.6f,
+                                    targetValue = 1.0f,
+                                    typeConverter = Float.VectorConverter,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(1000, easing = FastOutSlowInEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                    ),
+                                    label = "alphaAnimation"
+                                )
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .scale(scale)
+                                        .alpha(alpha),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        strokeWidth = 1.5.dp
+                                    )
+                                }
+                                
+                                Spacer(Modifier.height(12.dp))
+                                
+                                val loadingText = "Crafting your personalized quest..."
+                                
+                                var displayedTextLength by remember { mutableStateOf(0) }
+                                
+                                LaunchedEffect(Unit) {
+                                    while (true) {
+                                        if (displayedTextLength >= loadingText.length + 5) {
+                                            displayedTextLength = 0
+                                            delay(500)
+                                        }
+                                        
+                                        if (displayedTextLength <= loadingText.length) {
+                                            displayedTextLength++
+                                        } else {
+                                            displayedTextLength++
+                                        }
+                                        
+                                        delay(100)
+                                    }
+                                }
+                                
                                 Text(
-                                    text = "Generating your quest...",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = loadingText.take(
+                                        minOf(displayedTextLength, loadingText.length)
+                                    ) + if (displayedTextLength % 2 == 0) "_" else "",
+                                    style = MaterialTheme.typography.bodyMedium,
                                     textAlign = TextAlign.Center
                                 )
                             }
-                        } else {
-                            // Show quest content
+                        } else if (needsGoalMessage || currentQuest.first.contains("Set a goal")) {
                             Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text("🎯Your task is:", style = MaterialTheme.typography.titleMedium)
-                                
-                                Spacer(Modifier.height(24.dp))
-                                
-                                Text(
-                                    text = currentQuest.first.trim(),
-                                    style = MaterialTheme.typography.displayMedium,
-                                    textAlign = TextAlign.Center
+                                Icon(
+                                    imageVector = Icons.Default.Flag,
+                                    contentDescription = "Set Goal First",
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
+                            
+                            Text(
+                                    text = "Start Your Journey!",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                textAlign = TextAlign.Center
+                            )
                                 
-                                Spacer(Modifier.height(16.dp))
-                                
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(80.dp)
                                 ) {
-                                    Text("🏆 Reward:", style = MaterialTheme.typography.titleMedium)
+                                    val messageText = currentQuest.first
+                                    
+                                    Text(
+                                        text = messageText,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 4,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            
+                            Spacer(Modifier.height(16.dp))
+                            
+                                Button(
+                                    onClick = {
+                                        context.startActivity(Intent(context, GoalActivity::class.java))
+                                    },
+                                    modifier = Modifier
+                                        .height(48.dp)
+                                        .defaultMinSize(minWidth = 140.dp, minHeight = 48.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Flag,
+                                        contentDescription = "Set Goal"
+                                    )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = "${currentQuest.second} points",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        style = MaterialTheme.typography.headlineSmall
+                                        text = "Set My Goal",
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            fontWeight = FontWeight.Medium
+                                        )
                                     )
+                                }
+                            }
+                        } else {
+                            BoxWithConstraints(
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth()
+                            ) {
+                                val isCompactHeight = maxHeight < 600.dp
+                                
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text("🎯Your task is:", style = MaterialTheme.typography.bodyLarge)
+                                    
+                                    AnimatedContent(
+                                        targetState = currentQuest.first,
+                                        transitionSpec = {
+                                            (slideInVertically { height -> height } + fadeIn(animationSpec = tween(600)))
+                                                .togetherWith(slideOutVertically { height -> -height } + fadeOut(animationSpec = tween(600)))
+                                        },
+                                        label = "QuestTransition"
+                                    ) { questText ->
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(100.dp)
+                                        ) {
+                                            val isLongText = questText.length > 150
+                                            var showFullText by remember { mutableStateOf(false) }
+                                            
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                val baseStyle = MaterialTheme.typography.bodyLarge
+                                                
+                                                Text(
+                                                    text = questText.trim(),
+                                                    style = baseStyle,
+                                                    textAlign = TextAlign.Center,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = if (isLongText) 4 else 5,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier
+                                                        .padding(horizontal = 4.dp)
+                                                        .fillMaxWidth()
+                                                )
+                                                
+                                                if (isLongText) {
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    TextButton(
+                                                        onClick = { showFullText = true },
+                                                        modifier = Modifier.padding(0.dp),
+                                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                                    ) {
+                                                        Text(
+                                                            "View Full Details",
+                                                            style = MaterialTheme.typography.bodySmall
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            
+                                            FullTextDialog(
+                                                text = questText.trim(),
+                                                title = "Your Task",
+                                                isVisible = showFullText,
+                                                onDismiss = { showFullText = false }
+                                            )
+                                        }
+                                    }
+                                    
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.height(30.dp)
+                                    ) {
+                                        Text("🏆 Reward:", style = MaterialTheme.typography.bodyLarge)
+                                        Spacer(Modifier.width(4.dp))
+                                        
+                                        AnimatedContent(
+                                            targetState = currentQuest.second,
+                                            transitionSpec = {
+                                                fadeIn(animationSpec = tween(500))
+                                                    .togetherWith(fadeOut(animationSpec = tween(500)))
+                                            },
+                                            label = "PointsTransition"
+                                        ) { points ->
+                                            Text(
+                                                text = "$points points",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                style = MaterialTheme.typography.titleMedium
+                                            )
+                                        }
+                                    }
+                                    
+                                    if (userGoal != null && currentQuestDetails != null && currentQuest.second > 0) {
+                                        Spacer(Modifier.height(8.dp))
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 4.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(8.dp),
+                                                horizontalAlignment = Alignment.Start
+                                            ) {
+                                                val goalTitle = userGoal?.title ?: ""
+                                                
+                                                Text(
+                                                    text = "Goal: $goalTitle",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                                Spacer(Modifier.height(4.dp))
+                                                Column {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = "Relevance:",
+                                                            style = MaterialTheme.typography.bodySmall
+                                                        )
+                                                        
+                                                        AnimatedContent(
+                                                            targetState = viewModel.getGoalRelevanceText(),
+                                                            transitionSpec = {
+                                                                fadeIn(animationSpec = tween(500))
+                                                                    .togetherWith(fadeOut(animationSpec = tween(500)))
+                                                            },
+                                                            label = "RelevanceTransition"
+                                                        ) { relevanceText ->
+                                                            Text(
+                                                                text = relevanceText,
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                style = MaterialTheme.typography.bodySmall
+                                                            )
+                                                        }
+                                                    }
+                                                    Spacer(Modifier.height(1.dp))
+                                                    
+                                                    val animatedRelevance = animateFloatAsState(
+                                                        targetValue = currentQuestDetails?.goalRelevance?.toFloat()?.div(100f) ?: 0.5f,
+                                                        animationSpec = tween(1000),
+                                                        label = "RelevanceAnimation"
+                                                    )
+                                                    LinearProgressIndicator(
+                                                        progress = { animatedRelevance.value },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                Spacer(Modifier.height(4.dp))
+                                                Column {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = "Progress:",
+                                                            style = MaterialTheme.typography.bodySmall
+                                                        )
+                                                        
+                                                        AnimatedContent(
+                                                            targetState = viewModel.getGoalProgressText(),
+                                                            transitionSpec = {
+                                                                fadeIn(animationSpec = tween(500))
+                                                                    .togetherWith(fadeOut(animationSpec = tween(500)))
+                                                            },
+                                                            label = "ProgressTextTransition"
+                                                        ) { progressText ->
+                                                            Text(
+                                                                text = progressText,
+                                                                color = MaterialTheme.colorScheme.secondary,
+                                                                style = MaterialTheme.typography.bodySmall
+                                                            )
+                                                        }
+                                                    }
+                                                    Spacer(Modifier.height(1.dp))
+                                                    
+                                                    val animatedProgress = animateFloatAsState(
+                                                        targetValue = currentQuestDetails?.goalProgress?.toFloat()?.div(100f) ?: 0.1f,
+                                                        animationSpec = tween(1000),
+                                                        label = "ProgressAnimation"
+                                                    )
+                                                    LinearProgressIndicator(
+                                                        progress = { animatedProgress.value },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        color = MaterialTheme.colorScheme.secondary
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                // Spacer after Quest Card
-                Spacer(Modifier.height(32.dp)) // Adjusted height
+                Spacer(Modifier.height(16.dp))
 
-                // Reward Section
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                AnimatedVisibility(
+                    visible = showReward,
+                    enter = fadeIn(animationSpec = tween(600)),
+                    exit = fadeOut(animationSpec = tween(400))
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(0.95f)
+                            .height(70.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Text(
+                                    text = "Preparing your next quest...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                BoxWithConstraints(
                     modifier = Modifier.fillMaxWidth()
+                ) {
+                    val isNarrow = maxWidth < 320.dp
+                    
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     AnimatedVisibility(visible = showReward) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = if (wasRejected) 
-                                    Icons.Filled.Close 
-                                else 
-                                    Icons.Default.CheckCircle,
+                                    imageVector = if (wasRejected) Icons.Filled.Close else Icons.Default.CheckCircle,
                                 contentDescription = if (wasRejected) "Rejected" else "Completed",
-                                tint = if (wasRejected) 
-                                    MaterialTheme.colorScheme.error 
-                                else 
-                                    MaterialTheme.colorScheme.primary,
+                                    tint = if (wasRejected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(32.dp)
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = if (wasRejected) 
-                                    "Quest rejected" 
-                                else 
-                                    "+${currentQuest.second} points",
+                                    text = if (wasRejected) "Quest rejected" else "+${currentQuest.second} points",
                                 style = MaterialTheme.typography.headlineSmall,
-                                color = if (wasRejected) 
-                                    MaterialTheme.colorScheme.error 
-                                else 
-                                    MaterialTheme.colorScheme.primary
+                                    color = if (wasRejected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
                         }
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(
                             onClick = {
@@ -441,93 +776,98 @@ class MainActivity : ComponentActivity() {
                                     ).show()
                                 }
                             },
-                            enabled = rejectCount < 5 && !showReward,
+                                enabled = !needsGoalMessage && rejectCount < 5 && !showReward && currentQuest.second > 0,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            ),
-                            modifier = Modifier.size(64.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close, 
-                                contentDescription = "Reject Quest (${5 - rejectCount} left)",
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
+                                ),
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .defaultMinSize(minWidth = 40.dp, minHeight = 40.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close, 
+                                    contentDescription = "Reject Quest (${5 - rejectCount} left)",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            
+                            if (isNarrow) Spacer(modifier = Modifier.width(12.dp))
 
                         Button(
                             onClick = {
-                                if (!showReward && currentQuest != null) {
+                                    if (!showReward && currentQuest.second > 0) {
                                     val calendar = Calendar.getInstance()
                                     val today = calendar.get(Calendar.DAY_OF_YEAR)
-                                    val isNewDay = lastClaimedDay != today
-                                    val newStreak = if (isNewDay && lastClaimedDay == today - 1) currentStreak + 1 else 1
+                                        val isNewDay = lastClaimedDay != today
+                                        val newStreak = if (isNewDay && lastClaimedDay == today - 1) currentStreak + 1 else 1
 
-                                    // Use AI-generated points directly
-                                    val points = currentQuest.second
-                                    val newTotalPoints = progressState.points + points
+                                        val points = currentQuest.second
+                                        val newTotalPoints = progressState.points + points
 
-                                    // Save progress to ViewModel (which will persist and sync)
                                     viewModel.saveProgress(
-                                        points = newTotalPoints,
-                                        streak = newStreak,
-                                        lastDay = today,
+                                            points = newTotalPoints,
+                                            streak = newStreak,
+                                            lastDay = today,
                                         quest = currentQuest.first,
                                         questPoints = points,
                                         status = TaskStatus.COMPLETED
                                     )
-                                    showReward = true
-                                    wasRejected = false
-                                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                        showReward = true
+                                        wasRejected = false
+                                        view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                                 }
                             },
                             modifier = Modifier
-                                .size(64.dp)
+                                    .size(40.dp)
+                                    .defaultMinSize(minWidth = 40.dp, minHeight = 40.dp)
                                 .scale(if (showReward) 0.9f else 1f),
-                            shape = CircleShape,
+                                shape = CircleShape,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (showReward) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) 
                                                 else MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            contentPadding = PaddingValues(0.dp)
+                                ),
+                                contentPadding = PaddingValues(0.dp),
+                                enabled = !needsGoalMessage && !showReward && currentQuest.second > 0
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Claim Reward",
-                                modifier = Modifier.size(32.dp)
-                            )
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Claim Reward",
+                                    modifier = Modifier.size(20.dp)
+                                )
                         }
                     }
 
-                    // Spacer below buttons
-                    Spacer(Modifier.height(24.dp)) // Adjusted height
+                    Spacer(Modifier.height(16.dp))
 
                     Text(
                         text = when {
+                            needsGoalMessage -> currentQuest.first
                             showReward -> "New quest loading..."
+                            currentQuest.first.startsWith("Loading") -> "Generating new quest..."
                             else -> "Next adventure in: ${timeToNextQuest.value.formattedTime}"
                         },
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
+                    }
                 }
             }
         }
 
-        // Auto-reset reward message
         LaunchedEffect(showReward) {
             if (showReward) {
                 delay(2000)
                 showReward = false
-                viewModel.loadSeed(System.currentTimeMillis())
-                viewModel.generateAIQuest() // Generate a new AI quest
+                if (!needsGoalMessage) {
+                    viewModel.generateAIQuest()
+                }
                 wasRejected = false
             }
         }
 
-        // Updated streak animation with improved visual effects
         AnimatedVisibility(
             visible = showStreakAnimation,
             modifier = Modifier.fillMaxSize()
@@ -536,31 +876,22 @@ class MainActivity : ComponentActivity() {
                 val center = this.center
                 val baseRadius = size.minDimension / 4
                 
-                // Draw background glow
                 drawCircle(
                     color = Color(0xFFFFD700).copy(alpha = 0.15f),
                     radius = baseRadius * 1.2f * (0.9f + animatedProgress.value * 0.2f),
                     center = center
                 )
                 
-                // Main particles - more organized circular distribution
                 val particleCount = 12
                 val angleStep = (2f * PI.toFloat() / particleCount)
                 
                 repeat(particleCount) { index ->
-                    // Create smooth wave-like motion
                     val waveOffset = sin(animatedProgress.value * PI.toFloat() * 2f + index * 0.5f).toFloat() * 15f
                     val distanceFromCenter = baseRadius * 0.8f + waveOffset
-                    
-                    // Calculate position with smooth rotation
                     val angle = angleStep * index + animatedProgress.value * PI.toFloat() * 2f
                     val x = center.x + cos(angle) * distanceFromCenter
                     val y = center.y + sin(angle) * distanceFromCenter
-                    
-                    // Dynamic size based on position in animation cycle
                     val particleSize = 20.dp.toPx() * (0.7f + kotlin.math.abs(sin(animatedProgress.value * PI.toFloat() * 3f + index * 0.4f)).toFloat() * 0.5f)
-                    
-                    // Color based on position with smoother transitions
                     val hue = (index / particleCount.toFloat()) * 60f + animatedProgress.value * 30f
                     val particleColor = androidx.compose.ui.graphics.Color.hsv(
                         hue = hue,
@@ -568,7 +899,6 @@ class MainActivity : ComponentActivity() {
                         value = 1.0f
                     ).copy(alpha = 0.8f)
                     
-                    // Draw each particle
                     drawCircle(
                         color = particleColor,
                         radius = particleSize,
@@ -577,7 +907,6 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 
-                // Draw center highlight
                 drawCircle(
                     color = Color.White.copy(alpha = 0.7f * (1f - animatedProgress.value)),
                     radius = 40.dp.toPx() * (1f - animatedProgress.value * 0.7f),
@@ -587,7 +916,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Update the animation spec for smoother motion
         LaunchedEffect(currentStreak) {
             if (currentStreak > 0) {
                 animatedProgress.animateTo(
@@ -603,7 +931,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Add daily reset logic
         LaunchedEffect(Unit) {
             while (true) {
                 val calendar = Calendar.getInstance()
@@ -615,12 +942,10 @@ class MainActivity : ComponentActivity() {
                 val delayTime = calendar.timeInMillis - now
                 
                 delay(delayTime)
-                isQuestCompleted = false
                 viewModel.loadSeed(System.currentTimeMillis())
             }
         }
 
-        // Add this LaunchedEffect to handle streak animation duration
         LaunchedEffect(showStreakAnimation) {
             if (showStreakAnimation) {
                 delay(2000)
@@ -628,7 +953,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Update local states when ViewModel state changes
         LaunchedEffect(progressState) {
             totalPoints = progressState.points
             currentStreak = progressState.streak
@@ -676,5 +1000,82 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 fun GreetingPreview() {
     DailyQuestAppTheme {
         Greeting("Android")
+    }
+}
+
+// Add a custom composable function for auto-sizing text
+@Composable
+fun AutoSizeText(
+    text: String,
+    modifier: Modifier = Modifier,
+    minFontSize: TextUnit = 12.sp,
+    maxFontSize: TextUnit = 24.sp,
+    style: TextStyle = MaterialTheme.typography.bodyLarge,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+    textAlign: TextAlign = TextAlign.Start,
+    color: Color = Color.Unspecified,
+    scrollable: Boolean = false,
+    allowScaling: Boolean = true
+) {
+    // Remember a scroll state only if scrollable is true
+    val scrollState = if (scrollable) rememberScrollState() else null
+    
+    // Apply scrollable modifier conditionally
+    val contentModifier = if (scrollable) {
+        modifier.verticalScroll(scrollState!!)
+    } else {
+        modifier
+    }
+    
+    // Use fixed text size without scaling - remove adaptive behavior
+    Text(
+        text = text,
+        style = style,
+        maxLines = maxLines,
+        overflow = overflow,
+        textAlign = textAlign,
+        color = color,
+        modifier = contentModifier
+    )
+}
+
+// Add a FullTextDialog for showing text in fullscreen
+@Composable
+fun FullTextDialog(
+    text: String,
+    title: String = "Task Details",
+    isVisible: Boolean,
+    onDismiss: () -> Unit
+) {
+    if (isVisible) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }

@@ -8,6 +8,7 @@ const { errorHandler, notFound } = require("./middlewares/errorMiddleware");
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const progressRoutes = require("./routes/progressRoutes");
+const goalRoutes = require("./routes/goalRoutes");
 
 // Initialize Express app
 const app = express();
@@ -27,6 +28,7 @@ if (config.NODE_ENV === "development") {
 // Mount routes
 app.use("/api/auth", authRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/goals", goalRoutes);
 
 // Simple health check route
 app.get("/", (req, res) => {

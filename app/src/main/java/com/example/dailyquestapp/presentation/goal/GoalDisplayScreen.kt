@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material3.LinearProgressIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,6 +166,37 @@ fun GoalDisplayScreen(
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
+                            // Progress indicator
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Progress",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "${currentGoal?.progress ?: 0}%",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                LinearProgressIndicator(
+                                    progress = { (currentGoal?.progress?.toFloat() ?: 0f) / 100f },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
                             // Description
                             if (!currentGoal?.description.isNullOrBlank()) {
                                 Text(
@@ -234,8 +266,6 @@ fun GoalDisplayScreen(
                             }
                         }
                     }
-                    
-                    // Progress section can be added here
                     
                     // Action buttons
                     Row(

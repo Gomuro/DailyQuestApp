@@ -1,5 +1,6 @@
 const progressRepository = require("../repositories/progressRepository");
 const userRepository = require("../repositories/userRepository");
+const goalService = require("./goalService");
 
 /**
  * Progress Service - handles operations related to user progress
@@ -51,24 +52,72 @@ class ProgressService {
   }
 
   /**
-   * Save task history
+   * Save task history with goal connection
    * @param {string} userId - User ID
-   * @param {Object} taskData - Task data (quest, points, status)
+   * @param {Object} taskData - Task data (quest, points, status, goalId, goalProgress)
    * @returns {Promise<Object>} Success message
    */
   async saveTaskHistory(userId, taskData) {
-    await progressRepository.saveTaskHistory(userId, taskData);
-    return { message: "Task history saved successfully" };
+    const { quest, points, status, goalId, goalProgress } = taskData;
+
+    // Save the task history first
+    const savedTask = await progressRepository.saveTaskHistory(userId, {
+      quest,
+      points,
+      status,
+    });
+
+    // If this is a completed task related to a goal, update the goal progress
+    if (status === "COMPLETED" && goalId && goalProgress > 0) {
+      try {
+        await goalService.updateGoalProgress(
+          userId,
+          goalId,
+          goalProgress,
+          savedTask._id
+        );
+      } catch (error) {
+        // Log the error but don't fail the task save
+        console.error(`Error updating goal progress: ${error.message}`);
+      }
+    }
+
+    return {
+      message: "Task history saved successfully",
+      taskId: savedTask._id,
+    };
   }
 
   /**
-   * Get task history
+   * Get task history with goal information
    * @param {string} userId - User ID
-   * @returns {Promise<Array>} Task history array
+   * @returns {Promise<Array>} Enhanced task history array with goal info
    */
   async getTaskHistory(userId) {
     const taskHistory = await progressRepository.getTaskHistory(userId);
-    return taskHistory;
+
+    // Get all active goals for this user to check task relevance
+    const userGoals = await goalService.getGoals(userId, "ACTIVE");
+
+    // For each task, check if it's related to any active goals
+    const enhancedTaskHistory = taskHistory.map((task) => {
+      const relatedGoal = userGoals.find((goal) =>
+        goal.relatedQuestIds.some((id) => id.toString() === task._id.toString())
+      );
+
+      return {
+        ...task.toObject(),
+        goalInfo: relatedGoal
+          ? {
+              goalId: relatedGoal._id,
+              title: relatedGoal.title,
+              category: relatedGoal.category,
+            }
+          : null,
+      };
+    });
+
+    return enhancedTaskHistory;
   }
 
   /**

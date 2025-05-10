@@ -3,6 +3,7 @@ package com.example.dailyquestapp.di
 import android.content.Context
 import com.example.dailyquestapp.data.local.DataStoreManager
 import com.example.dailyquestapp.data.remote.ApiService
+import com.example.dailyquestapp.data.repository.GoalRepository
 import com.example.dailyquestapp.data.repository.OfflineFirstProgressRepository
 import com.example.dailyquestapp.data.repository.ProgressRepository
 import com.example.dailyquestapp.data.repository.ProgressRepositoryImpl
@@ -39,4 +40,13 @@ val repositoryModule = module {
     
     // Also provide the remote-only implementation if needed
     single { ProgressRepositoryImpl(get<ApiService>()) }
+    
+    // Provide GoalRepository
+    single { 
+        GoalRepository(
+            apiService = get(),
+            dataStoreManager = get(),
+            tokenManager = get()
+        ) 
+    }
 }

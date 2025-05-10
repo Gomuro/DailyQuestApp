@@ -12,6 +12,15 @@ This is the server component of the Daily Quest App, providing authentication an
 - Theme Preference Storage (save and retrieve theme preferences)
 - Unit and Integration Tests
 
+## Sprint "server-open-2"
+
+### Scope & Deliverables
+
+- Goal Management (create, update, delete goals)
+- Goal Progress Tracking (track progress towards goals)
+- Goal-Based Quest Integration (connect quests to goals)
+- Enhanced Task History (relate tasks to goals)
+
 ### Architecture
 
 This project follows a layered architecture pattern:
@@ -84,6 +93,18 @@ This project follows a layered architecture pattern:
 - `POST /api/progress/theme` - Save theme preference
 - `GET /api/progress/theme` - Get theme preference
 
+#### Goals
+
+- `POST /api/goals` - Create a new goal
+- `GET /api/goals` - Get all goals (with optional status filter)
+- `GET /api/goals/active` - Get the current active goal
+- `GET /api/goals/:id` - Get a specific goal
+- `PUT /api/goals/:id` - Update a goal
+- `DELETE /api/goals/:id` - Delete a goal
+- `PATCH /api/goals/:id/progress` - Update goal progress
+
+Detailed documentation for the Goal API is available in [GOAL_API_DOCS.md](./GOAL_API_DOCS.md).
+
 ### Security
 
 - JWT-based authentication
@@ -95,6 +116,5 @@ This project follows a layered architecture pattern:
 
 Upcoming sprints will include:
 
-- Sprint "server-open-2": Quest generation and management
 - Sprint "server-open-3": Social features and achievements
 - Sprint "server-open-4": Push notifications and reminders

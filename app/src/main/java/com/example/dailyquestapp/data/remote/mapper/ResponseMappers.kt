@@ -25,8 +25,9 @@ fun ProgressResponse.toProgressData(): ProgressData {
     )
 }
 
-// TaskHistoryDto to TaskProgress
-fun TaskHistoryDto.toTaskProgress(): TaskProgress {
+// Note: Renamed from toTaskProgress to avoid conflicts with TaskHistoryMapper.kt
+// Use this version only for simple task progress without goal information
+fun TaskHistoryDto.toBasicTaskProgress(): TaskProgress {
     val parseDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
     val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
@@ -40,7 +41,4 @@ fun TaskHistoryDto.toTaskProgress(): TaskProgress {
     )
 }
 
-// List<TaskHistoryDto> to List<TaskProgress>
-fun List<TaskHistoryDto>.toTaskProgressList(): List<TaskProgress> {
-    return this.map { it.toTaskProgress() }
-}
+// Note: toTaskProgressList was removed to avoid conflicts with the implementation in TaskHistoryMapper.kt
