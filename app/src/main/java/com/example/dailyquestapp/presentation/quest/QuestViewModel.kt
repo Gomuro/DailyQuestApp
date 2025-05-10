@@ -117,8 +117,9 @@ class QuestViewModel constructor(
                     checkGoalAndGenerateQuest()
                 } else {
                     _currentSeed.value = seed
-                    if (displayedQuestFlow.value.first == "Loading your first quest..." || _currentQuest.value == null) { // Check against displayedQuestFlow or _currentQuest
-                        checkGoalAndGenerateQuest()
+                    if (displayedQuestFlow.value.first == "Loading your first quest..." || _currentQuest.value == null) { 
+                        // Try to load saved quest first, only generate if not found
+                        tryLoadSavedQuest()
                     }
                 }
             }
@@ -137,7 +138,8 @@ class QuestViewModel constructor(
                 
                 if (!hadGoalBefore && goalData != null) {
                     if (_currentQuest.value == null) {
-                        generateAIQuest() // This will set _currentQuest
+                        // Try to load saved quest first, only generate if not found
+                        tryLoadSavedQuest()
                     }
                     _needsGoalMessage.value = false
                 } else if (goalData == null) {
@@ -150,10 +152,43 @@ class QuestViewModel constructor(
         }
     }
     
+    // New function to load saved quest if available
+    private suspend fun tryLoadSavedQuest() {
+        // First check if we already have a quest loaded
+        if (_currentQuest.value != null && _currentQuestDetails.value != null) {
+            return
+        }
+        
+        // Try to load saved quest from DataStore
+        val savedQuest = dataStoreManager.currentQuestFlow.first()
+        
+        if (savedQuest != null) {
+            // We found a saved quest for today, use it
+            Log.d("QuestViewModel", "Loaded saved quest: ${savedQuest.quest}")
+            _currentQuest.value = Pair(savedQuest.quest, savedQuest.points)
+            _currentQuestDetails.value = savedQuest
+            _needsGoalMessage.value = false
+        } else if (_userGoal.value != null) {
+            // No saved quest but we have a goal, generate a new one
+            generateAIQuest()
+            _needsGoalMessage.value = false
+        } else {
+            // No saved quest and no goal
+            _needsGoalMessage.value = true
+            _currentQuest.value = null
+            _currentQuestDetails.value = null
+        }
+    }
+    
     private fun checkGoalAndGenerateQuest() {
         viewModelScope.launch {
             if (_userGoal.value != null) {
-                generateAIQuest()
+                // Try to load saved quest first, only generate if not found
+                if (dataStoreManager.currentQuestFlow.first() == null) {
+                    generateAIQuest()
+                } else {
+                    tryLoadSavedQuest()
+                }
                 _needsGoalMessage.value = false
             } else {
                 _needsGoalMessage.value = true
@@ -270,7 +305,11 @@ class QuestViewModel constructor(
                 ).collect { questResult ->
                     _currentQuest.value = Pair(questResult.quest, questResult.points)
                     _currentQuestDetails.value = questResult
-                    Log.d("QuestViewModel", "Generated goal-based quest: ${questResult.quest} " +
+                    
+                    // Save the quest to DataStore so it persists across app launches
+                    dataStoreManager.saveCurrentQuest(questResult)
+                    
+                    Log.d("QuestViewModel", "Generated and saved goal-based quest: ${questResult.quest} " +
                             "with ${questResult.points} points, relevance: ${questResult.goalRelevance}%, " +
                             "progress: ${questResult.goalProgress}%, category: ${questResult.category}")
                 }

@@ -25,6 +25,15 @@ class DataStoreManager(context: Context) {
         val LAST_REJECT_DAY = intPreferencesKey("last_reject_day")
         val THEME_PREFERENCE = intPreferencesKey("theme_preference")
         
+        // Current daily quest preferences - to persist across app launches
+        val CURRENT_QUEST_TEXT = stringPreferencesKey("current_quest_text")
+        val CURRENT_QUEST_POINTS = intPreferencesKey("current_quest_points")
+        val CURRENT_QUEST_RELEVANCE = intPreferencesKey("current_quest_relevance")
+        val CURRENT_QUEST_PROGRESS = intPreferencesKey("current_quest_progress")
+        val CURRENT_QUEST_CATEGORY = stringPreferencesKey("current_quest_category")
+        val CURRENT_QUEST_DIFFICULTY = stringPreferencesKey("current_quest_difficulty")
+        val CURRENT_QUEST_DAY = intPreferencesKey("current_quest_day")
+        
         // Goal related preferences
         val USER_GOAL_TITLE = stringPreferencesKey("user_goal_title")
         val USER_GOAL_DESCRIPTION = stringPreferencesKey("user_goal_description")
@@ -264,6 +273,47 @@ class DataStoreManager(context: Context) {
             // Don't reset the HAS_SET_INITIAL_GOAL flag
         }
     }
+
+    // Add function to save the current daily quest
+    suspend fun saveCurrentQuest(questResult: com.example.dailyquestapp.ai.processor.QuestResult) {
+        val calendar = Calendar.getInstance()
+        val today = calendar.get(Calendar.DAY_OF_YEAR)
+        
+        dataStore.edit { preferences ->
+            preferences[CURRENT_QUEST_TEXT] = questResult.quest
+            preferences[CURRENT_QUEST_POINTS] = questResult.points
+            preferences[CURRENT_QUEST_RELEVANCE] = questResult.goalRelevance
+            preferences[CURRENT_QUEST_PROGRESS] = questResult.goalProgress
+            preferences[CURRENT_QUEST_CATEGORY] = questResult.category
+            preferences[CURRENT_QUEST_DIFFICULTY] = questResult.difficultyLevel
+            preferences[CURRENT_QUEST_DAY] = today
+        }
+    }
+    
+    // Add function to get current quest if available for today
+    val currentQuestFlow: Flow<com.example.dailyquestapp.ai.processor.QuestResult?> = dataStore.data
+        .map { preferences ->
+            val questText = preferences[CURRENT_QUEST_TEXT] ?: return@map null
+            val questDay = preferences[CURRENT_QUEST_DAY] ?: -1
+            
+            // Check if the quest is from today
+            val calendar = Calendar.getInstance()
+            val today = calendar.get(Calendar.DAY_OF_YEAR)
+            
+            if (questDay != today) {
+                // Quest is not from today, return null
+                return@map null
+            }
+            
+            com.example.dailyquestapp.ai.processor.QuestResult(
+                quest = questText,
+                points = preferences[CURRENT_QUEST_POINTS] ?: 0,
+                goalRelevance = preferences[CURRENT_QUEST_RELEVANCE] ?: 50,
+                goalProgress = preferences[CURRENT_QUEST_PROGRESS] ?: 10,
+                category = preferences[CURRENT_QUEST_CATEGORY] ?: "",
+                difficultyLevel = preferences[CURRENT_QUEST_DIFFICULTY] ?: "medium"
+            )
+        }
 }
 
 data class ProgressData(

@@ -109,6 +109,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Search
 
 // Static object to hold app-wide session flags
 object AppSessionFlags {
@@ -498,12 +499,23 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 val isCompactHeight = maxHeight < 600.dp
                                 
+                                val baseStyle = when {
+                                    isCompactHeight -> MaterialTheme.typography.bodyMedium
+                                    maxWidth < 360.dp -> MaterialTheme.typography.bodyMedium.copy(
+                                        fontSize = MaterialTheme.typography.bodyMedium.fontSize * 0.9
+                                    )
+                                    maxWidth > 600.dp -> MaterialTheme.typography.bodyLarge.copy(
+                                        fontSize = MaterialTheme.typography.bodyLarge.fontSize * 1.1
+                                    )
+                                    else -> MaterialTheme.typography.bodyLarge
+                                }
+                                
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("🎯Your task is:", style = MaterialTheme.typography.bodyLarge)
+                                    Text("🎯Your task is:", style = baseStyle)
                                     
                                     AnimatedContent(
                                         targetState = currentQuest.first,
@@ -525,30 +537,43 @@ class MainActivity : ComponentActivity() {
                                                 horizontalAlignment = Alignment.CenterHorizontally,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                val baseStyle = MaterialTheme.typography.bodyLarge
+                                                Box(
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Text(
+                                                        text = questText.trim(),
+                                                        style = baseStyle,
+                                                        textAlign = TextAlign.Center,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = if (isLongText) 3 else 4,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier
+                                                            .padding(horizontal = 4.dp)
+                                                            .fillMaxWidth()
+                                                    )
+                                                    
+                                                    // Remove the magnifying glass icon
+                                                }
                                                 
-                                                Text(
-                                                    text = questText.trim(),
-                                                    style = baseStyle,
-                                                    textAlign = TextAlign.Center,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = if (isLongText) 4 else 5,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier
-                                                        .padding(horizontal = 4.dp)
-                                                        .fillMaxWidth()
-                                                )
-                                                
+                                                // Show a clear "View Full Details" button at the bottom for long text
                                                 if (isLongText) {
-                                                    Spacer(modifier = Modifier.height(2.dp))
-                                                    TextButton(
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Button(
                                                         onClick = { showFullText = true },
-                                                        modifier = Modifier.padding(0.dp),
-                                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                                        modifier = Modifier
+                                                            .fillMaxWidth(0.8f)
+                                                            .height(32.dp),
+                                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
                                                     ) {
                                                         Text(
                                                             "View Full Details",
-                                                            style = MaterialTheme.typography.bodySmall
+                                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                                fontWeight = FontWeight.Medium
+                                                            )
                                                         )
                                                     }
                                                 }
@@ -567,7 +592,7 @@ class MainActivity : ComponentActivity() {
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.height(30.dp)
                                     ) {
-                                        Text("🏆 Reward:", style = MaterialTheme.typography.bodyLarge)
+                                        Text("🏆 Reward:", style = baseStyle)
                                         Spacer(Modifier.width(4.dp))
                                         
                                         AnimatedContent(
@@ -581,7 +606,7 @@ class MainActivity : ComponentActivity() {
                                             Text(
                                                 text = "$points points",
                                                 color = MaterialTheme.colorScheme.primary,
-                                                style = MaterialTheme.typography.titleMedium
+                                                style = baseStyle
                                             )
                                         }
                                     }
