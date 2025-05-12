@@ -125,129 +125,90 @@ fun ProfileScreen(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Profile Picture with edit indicator
+                    // Profile Picture with distinctive border
                     Box(
-                        modifier = Modifier.size(90.dp),
+                        modifier = Modifier
+                            .size(90.dp)
+                            .clip(CircleShape)
+                            .border(
+                                width = 2.dp,
+                                brush = Brush.sweepGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.tertiary,
+                                        MaterialTheme.colorScheme.primary
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                            .padding(4.dp)
+                            .clickable { /* Handle image change */ },
                         contentAlignment = Alignment.Center
                     ) {
-                        // Main profile image with border
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .border(
-                                    width = 2.dp,
-                                    brush = Brush.sweepGradient(
-                                        listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.tertiary,
-                                            MaterialTheme.colorScheme.primary
-                                        )
-                                    ),
-                                    shape = CircleShape
-                                )
-                                .padding(4.dp)
-                                .clickable { /* Handle image change */ },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (!profileImageUrl.isNullOrEmpty()) {
-                                Image(
-                                    painter = rememberImagePainter(profileImageUrl),
-                                    contentDescription = "Profile picture",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Profile Picture",
-                                    modifier = Modifier.size(38.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        
-                        // Edit icon overlay
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .border(1.dp, Color.White, CircleShape)
-                                .clickable { /* Handle image change */ },
-                            contentAlignment = Alignment.Center
-                        ) {
+                        if (!profileImageUrl.isNullOrEmpty()) {
+                            Image(
+                                painter = rememberImagePainter(profileImageUrl),
+                                contentDescription = "Profile picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
                             Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Change profile picture",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier.size(38.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                     
                     Spacer(modifier = Modifier.width(16.dp))
                     
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Modern stats row
+                    Column {
+                        // Stats in horizontal row
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            ModernStat(
+                            // Posts count card
+                            StatsCard(
+                                icon = Icons.Default.CollectionsBookmark,
                                 count = postCount,
-                                label = "Posts"
+                                label = "Posts",
+                                modifier = Modifier.weight(1f)
                             )
                             
-                            // Vertical divider
-                            Box(
-                                modifier = Modifier
-                                    .height(24.dp)
-                                    .width(1.dp)
-                                    .background(MaterialTheme.colorScheme.outlineVariant)
-                            )
-                            
-                            ModernStat(
+                            // Followers count card
+                            StatsCard(
+                                icon = Icons.Default.People,
                                 count = followerCount,
                                 label = "Followers",
-                                isClickable = true
+                                modifier = Modifier.weight(1f)
                             )
                             
-                            // Vertical divider
-                            Box(
-                                modifier = Modifier
-                                    .height(24.dp)
-                                    .width(1.dp)
-                                    .background(MaterialTheme.colorScheme.outlineVariant)
-                            )
-                            
-                            ModernStat(
+                            // Following count card
+                            StatsCard(
+                                icon = Icons.Default.PersonAdd,
                                 count = followingCount,
                                 label = "Following",
-                                isClickable = true
+                                modifier = Modifier.weight(1f)
                             )
                         }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
                         
                         Button(
                             onClick = onEditProfile,
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                            )
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                "Edit Profile",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.Medium
-                                )
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
                             )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Edit Profile")
                         }
                     }
                 }
@@ -406,48 +367,41 @@ private fun UniqueMediaItem(isVideo: Boolean) {
 }
 
 @Composable
-private fun ModernStat(
+private fun StatsCard(
+    icon: ImageVector,
     count: Int,
     label: String,
-    isClickable: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = RoundedCornerShape(12.dp),
         modifier = modifier
-            .then(
-                if (isClickable) {
-                    Modifier
-                        .clickable { /* Handle click to view followers/following */ }
-                        .padding(8.dp)
-                } else {
-                    Modifier.padding(8.dp)
-                }
-            )
     ) {
-        Text(
-            text = "$count",
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalAlignment = Alignment.Center,
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
             )
-        )
-        
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            
+            Text(
+                text = "$count",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold
+                )
             )
-        )
-        
-        if (isClickable) {
-            Box(
-                modifier = Modifier
-                    .width(16.dp)
-                    .height(2.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(1.dp)
-                    )
+            
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall
             )
         }
     }

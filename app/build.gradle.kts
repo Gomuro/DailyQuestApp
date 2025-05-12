@@ -107,4 +107,7 @@ dependencies {
     // Koin for DI - an alternative to Hilt that doesn't require annotation processing
     implementation("io.insert-koin:koin-android:3.5.0")
     implementation("io.insert-koin:koin-androidx-compose:3.5.0")
+
+    // Coil for image loading
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
